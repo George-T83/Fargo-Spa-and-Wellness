@@ -1,0 +1,62 @@
+@page "/services"
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+
+<PageTitle>Treatments &amp; Services - Fargo Spa and Wellness</PageTitle>
+
+<section class="catalog-header">
+    <div class="container">
+        <p class="eyebrow">Our Menu</p>
+        <h1 class="section-title">Treatments &amp; Services</h1>
+        <p class="catalog-subtitle">
+            Explore our full collection of spa treatments, each designed to restore body and mind.
+        </p>
+    </div>
+</section>
+
+<section class="services-section">
+    <div class="container">
+        @if (services is null)
+        {
+            <p>Loading treatments...</p>
+        }
+        else if (services.Count == 0)
+        {
+            <p>No treatments are available right now. Please check back soon.</p>
+        }
+        else
+        {
+            <div class="row g-4">
+                @foreach (var service in services)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <div class="service-card h-100">
+                            <p class="service-category">@service.Category</p>
+                            <h3 class="service-name">@service.Name</h3>
+                            <p class="service-description">@service.Description</p>
+                            <div class="service-meta">
+                                <span>@service.DurationMinutes min</span>
+                                <span class="service-price">@service.Price.ToString("C")</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private List<Service>? services;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        services = await db.Services
+            .OrderBy(s => s.Category)
+            .ThenBy(s => s.Name)
+            .ToListAsync();
+    }
+}
