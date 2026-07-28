@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Family_and_Spa_Wellness/1.0.0": {
+        "runtime": {
+          "Family_and_Spa_Wellness.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Family_and_Spa_Wellness/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
