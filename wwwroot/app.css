@@ -146,6 +146,26 @@ a, .btn-link {
     border-radius: 0.85rem;
     padding: 1.5rem;
     box-shadow: 0 1px 3px rgba(28, 29, 34, 0.06), 0 8px 24px -8px rgba(28, 29, 34, 0.1);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+a.service-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(28, 29, 34, 0.08), 0 12px 28px -8px rgba(28, 29, 34, 0.14);
+    color: inherit;
+}
+
+.view-all-link {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--spa-sage-600);
+    text-decoration: none;
+}
+
+.view-all-link:hover {
+    color: var(--spa-sage-700);
 }
 
 .service-icon {
