@@ -3,6 +3,11 @@ bin/
 obj/
 *.user
 
+## Local SQLite database
+*.db
+*.db-shm
+*.db-wal
+
 ## IDE
 .vs/
 .vscode/

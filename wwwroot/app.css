@@ -181,6 +181,34 @@ a, .btn-link {
     margin-bottom: 0;
 }
 
+.service-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--spa-sand-100);
+    font-size: 0.9rem;
+    color: var(--spa-ink-600);
+}
+
+.service-price {
+    font-weight: 600;
+    color: var(--spa-ink-800);
+}
+
+.catalog-header {
+    background-color: var(--spa-sand-100);
+    padding: 3rem 0 2rem;
+}
+
+.catalog-subtitle {
+    color: var(--spa-ink-600);
+    max-width: 36rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+}
+
 .testimonial-section {
     background: linear-gradient(135deg, var(--spa-sage-50), var(--spa-sand-50));
     border-top: 1px solid rgba(231, 220, 205, 0.6);
