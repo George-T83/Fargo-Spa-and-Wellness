@@ -1,15 +1,244 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&display=swap');
+
+/* Fargo Spa and Wellness brand palette (sand / sage / ink) */
+:root {
+    --spa-sand-50: #faf8f5;
+    --spa-sand-100: #f3eee7;
+    --spa-sand-200: #e7dccd;
+    --spa-sand-300: #d6c3a8;
+    --spa-sand-600: #93754a;
+    --spa-sage-50: #f5f7f4;
+    --spa-sage-100: #e8ede4;
+    --spa-sage-500: #638a54;
+    --spa-sage-600: #4d6e41;
+    --spa-sage-700: #3d5734;
+    --spa-ink-400: #737682;
+    --spa-ink-600: #444752;
+    --spa-ink-700: #373943;
+    --spa-ink-800: #2a2c34;
+    --spa-ink-900: #1c1d22;
+}
+
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: var(--spa-sand-50);
+    color: var(--spa-ink-700);
+}
+
+h1, h2, h3, h4, .hero-title, .section-title {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', Times, serif;
+    font-weight: 600;
 }
 
 a, .btn-link {
-    color: #006bb7;
+    color: var(--spa-sage-600);
 }
 
 .btn-primary {
     color: #fff;
     background-color: #1b6ec2;
     border-color: #1861ac;
+}
+
+/* Spa branding - Fargo Spa and Wellness */
+
+.btn-spa-primary {
+    background-color: var(--spa-sage-600);
+    border-color: var(--spa-sage-600);
+    color: #fff;
+}
+
+    .btn-spa-primary:hover {
+        background-color: var(--spa-sage-700);
+        border-color: var(--spa-sage-700);
+        color: #fff;
+    }
+
+.btn-spa-secondary {
+    background-color: #fff;
+    border: 1px solid var(--spa-sand-300);
+    color: var(--spa-ink-700);
+}
+
+    .btn-spa-secondary:hover {
+        background-color: var(--spa-sand-100);
+        color: var(--spa-ink-800);
+    }
+
+.btn-spa-ghost {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+    .btn-spa-ghost:hover {
+        background-color: rgba(255, 255, 255, 0.15);
+        color: #fff;
+    }
+
+.hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--spa-sage-50), var(--spa-sand-50) 50%, var(--spa-sand-100));
+}
+
+.hero-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.2;
+}
+
+.hero .container {
+    position: relative;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--spa-sand-200);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--spa-sage-700);
+}
+
+.hero-title {
+    font-size: 2.75rem;
+    line-height: 1.1;
+    color: var(--spa-ink-800);
+    margin-bottom: 1rem;
+}
+
+.hero-subtitle {
+    font-size: 1.1rem;
+    color: var(--spa-ink-600);
+    max-width: 32rem;
+    margin-bottom: 0;
+}
+
+.services-section {
+    background-color: var(--spa-sand-50);
+    padding: 4rem 0;
+}
+
+.eyebrow {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--spa-sage-600);
+    margin-bottom: 0.25rem;
+}
+
+.section-title {
+    color: var(--spa-ink-800);
+}
+
+.service-card {
+    background-color: #ffffff;
+    border-radius: 0.85rem;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(28, 29, 34, 0.06), 0 8px 24px -8px rgba(28, 29, 34, 0.1);
+}
+
+.service-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background-color: var(--spa-sage-50);
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+}
+
+.service-category {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--spa-sand-600);
+    margin-bottom: 0.25rem;
+}
+
+.service-name {
+    font-size: 1.05rem;
+    color: var(--spa-ink-800);
+    margin-bottom: 0.4rem;
+}
+
+.service-description {
+    font-size: 0.9rem;
+    color: var(--spa-ink-400);
+    margin-bottom: 0;
+}
+
+.testimonial-section {
+    background: linear-gradient(135deg, var(--spa-sage-50), var(--spa-sand-50));
+    border-top: 1px solid rgba(231, 220, 205, 0.6);
+    border-bottom: 1px solid rgba(231, 220, 205, 0.6);
+    padding: 4rem 0;
+}
+
+.testimonial-quote-mark {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 3rem;
+    color: var(--spa-sage-500);
+    opacity: 0.4;
+    line-height: 1;
+}
+
+.testimonial-quote {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', Times, serif;
+    font-size: 1.4rem;
+    font-style: italic;
+    color: var(--spa-ink-700);
+}
+
+.testimonial-stars {
+    color: #fbbf24;
+    letter-spacing: 0.2rem;
+    margin-top: 0.5rem;
+}
+
+.testimonial-author {
+    color: var(--spa-ink-700);
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.cta-section {
+    padding: 4rem 0;
+}
+
+.cta-card {
+    background: linear-gradient(135deg, var(--spa-ink-800), var(--spa-ink-900));
+    border-radius: 1rem;
+    padding: 3rem 2rem;
+}
+
+.cta-icon {
+    font-size: 1.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.cta-title {
+    color: #fff;
+    margin-bottom: 0.5rem;
+}
+
+.cta-subtitle {
+    color: rgba(214, 195, 168, 0.8);
+    max-width: 28rem;
+    margin: 0 auto;
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
