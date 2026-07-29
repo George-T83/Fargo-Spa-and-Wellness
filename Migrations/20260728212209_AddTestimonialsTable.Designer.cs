@@ -3,6 +3,7 @@ using System;
 using Family_and_Spa_Wellness.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Family_and_Spa_Wellness.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260728212209_AddTestimonialsTable")]
+    partial class AddTestimonialsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -148,35 +151,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.HasIndex("ClientId");
 
                     b.ToTable("Testimonials");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            ApprovalStatus = "Approved",
-                            ClientId = 1,
-                            CreatedAt = new DateTime(2026, 7, 10, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Rating = 5,
-                            ReviewText = "This was exactly what I needed after months of desk work. My shoulders finally feel loose again."
-                        },
-                        new
-                        {
-                            Id = 2,
-                            ApprovalStatus = "Approved",
-                            ClientId = 2,
-                            CreatedAt = new DateTime(2026, 7, 15, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Rating = 5,
-                            ReviewText = "My skin has never looked better. The esthetician really listened to what I wanted."
-                        },
-                        new
-                        {
-                            Id = 3,
-                            ApprovalStatus = "Approved",
-                            ClientId = 3,
-                            CreatedAt = new DateTime(2026, 7, 20, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Rating = 4,
-                            ReviewText = "Such a relaxing experience from start to finish. I'll definitely be back."
-                        });
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.User", b =>
@@ -218,41 +192,6 @@ namespace Family_and_Spa_Wellness.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CreatedAt = new DateTime(2026, 7, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Email = "sarah.mitchell@example.com",
-                            FirstName = "Sarah",
-                            LastName = "Mitchell",
-                            PasswordHash = "seed-no-login",
-                            Phone = "555-0201",
-                            Role = "Client"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            CreatedAt = new DateTime(2026, 7, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Email = "james.whitfield@example.com",
-                            FirstName = "James",
-                            LastName = "Whitfield",
-                            PasswordHash = "seed-no-login",
-                            Phone = "555-0202",
-                            Role = "Client"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            CreatedAt = new DateTime(2026, 7, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Email = "priya.anand@example.com",
-                            FirstName = "Priya",
-                            LastName = "Anand",
-                            PasswordHash = "seed-no-login",
-                            Phone = "555-0203",
-                            Role = "Client"
-                        });
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Testimonial", b =>
