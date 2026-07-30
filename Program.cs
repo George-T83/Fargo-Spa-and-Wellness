@@ -23,6 +23,8 @@ builder.Services.Configure<SmtpOptions>(options =>
     }
     options.Login = builder.Configuration["SMTP_LOGIN"] ?? options.Login;
     options.Password = builder.Configuration["SMTP_PASSWORD"] ?? options.Password;
+    options.FromEmail = builder.Configuration["SMTP_FROM_EMAIL"] ?? options.FromEmail;
+    options.FromName = builder.Configuration["SMTP_FROM_NAME"] ?? options.FromName;
 });
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
