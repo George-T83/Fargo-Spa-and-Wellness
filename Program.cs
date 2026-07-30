@@ -1,6 +1,9 @@
 using Family_and_Spa_Wellness.Components;
 using Family_and_Spa_Wellness.Data;
+using Family_and_Spa_Wellness.Services;
 using Microsoft.EntityFrameworkCore;
+
+LoadDotEnv(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +13,18 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("Default")));
+
+builder.Services.Configure<SmtpOptions>(options =>
+{
+    options.Host = builder.Configuration["SMTP_HOST"] ?? options.Host;
+    if (int.TryParse(builder.Configuration["SMTP_PORT"], out var port))
+    {
+        options.Port = port;
+    }
+    options.Login = builder.Configuration["SMTP_LOGIN"] ?? options.Login;
+    options.Password = builder.Configuration["SMTP_PASSWORD"] ?? options.Password;
+});
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
 var app = builder.Build();
 
@@ -37,3 +52,35 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+static void LoadDotEnv(string path)
+{
+    if (!File.Exists(path))
+    {
+        return;
+    }
+
+    foreach (var line in File.ReadAllLines(path))
+    {
+        var trimmed = line.Trim();
+        if (trimmed.Length == 0 || trimmed.StartsWith('#'))
+        {
+            continue;
+        }
+
+        var separatorIndex = trimmed.IndexOf('=');
+        if (separatorIndex <= 0)
+        {
+            continue;
+        }
+
+        var key = trimmed[..separatorIndex].Trim();
+        var value = trimmed[(separatorIndex + 1)..].Trim().Trim('"');
+
+        // Don't clobber a value already set in the real process environment.
+        if (Environment.GetEnvironmentVariable(key) is null)
+        {
+            Environment.SetEnvironmentVariable(key, value);
+        }
+    }
+}
