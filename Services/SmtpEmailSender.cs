@@ -18,7 +18,7 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
 
         using var message = new MailMessage
         {
-            From = new MailAddress(_options.Login, "Fargo Spa and Wellness"),
+            From = new MailAddress(_options.FromEmail, _options.FromName),
             Subject = subject,
             Body = htmlBody,
             IsBodyHtml = true,
