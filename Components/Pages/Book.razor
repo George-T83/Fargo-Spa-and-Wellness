@@ -74,6 +74,7 @@
                             {
                                 <button type="button" class="treatment-option @(selectedServiceId == service.Id ? "selected" : "")"
                                         @onclick="() => SelectService(service.Id)">
+                                    <div class="service-icon">@ServiceCategoryIcon.GetIcon(service.Category)</div>
                                     <p class="service-category">@service.Category</p>
                                     <h3 class="service-name">@service.Name</h3>
                                     <p class="service-description">@service.Description</p>
