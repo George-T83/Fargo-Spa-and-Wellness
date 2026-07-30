@@ -25,7 +25,18 @@
             </nav>
 
             <div class="spa-actions">
-                <a href="/register" class="btn btn-spa-secondary btn-sm">Register</a>
+                <AuthorizeView>
+                    <Authorized>
+                        <span class="spa-user-greeting">Hi, @context.User.Identity?.Name?.Split(' ')[0]</span>
+                        <form method="post" action="/account/logout">
+                            <button type="submit" class="btn btn-spa-secondary btn-sm">Sign out</button>
+                        </form>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/login" class="btn btn-spa-secondary btn-sm">Sign in</a>
+                        <a href="/register" class="btn btn-spa-secondary btn-sm">Register</a>
+                    </NotAuthorized>
+                </AuthorizeView>
                 <a href="/book" class="btn btn-spa-primary btn-sm">Book a Visit</a>
             </div>
         </div>
