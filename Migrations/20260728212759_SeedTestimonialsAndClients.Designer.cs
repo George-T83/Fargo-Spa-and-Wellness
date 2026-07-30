@@ -3,6 +3,7 @@ using System;
 using Family_and_Spa_Wellness.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,42 +11,14 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Family_and_Spa_Wellness.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260728212759_SeedTestimonialsAndClients")]
+    partial class SeedTestimonialsAndClients
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
-
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.Appointment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ClientId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("EndTime")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ServiceId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("StartTime")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("ServiceId");
-
-                    b.ToTable("Appointments");
-                });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Service", b =>
                 {
@@ -283,25 +256,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Phone = "555-0203",
                             Role = "Client"
                         });
-                });
-
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.Appointment", b =>
-                {
-                    b.HasOne("Family_and_Spa_Wellness.Models.User", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Family_and_Spa_Wellness.Models.Service", "Service")
-                        .WithMany()
-                        .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Client");
-
-                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Testimonial", b =>

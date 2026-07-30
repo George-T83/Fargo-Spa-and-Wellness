@@ -1,11 +1,13 @@
 @page "/register"
-@attribute [StreamRendering(false)]
 @rendermode InteractiveServer
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IEmailSender EmailSender
+@inject NavigationManager NavigationManager
 
 <PageTitle>Create an Account - Fargo Spa and Wellness</PageTitle>
 
@@ -28,7 +30,7 @@
             @if (submitted)
             {
                 <div class="alert alert-success mb-0" role="alert">
-                    Welcome, @model.FullName! Your account has been created.
+                    Welcome, @model.FirstName! Your account has been created.
                     A confirmation email has been sent to @model.Email.
                 </div>
             }
@@ -43,9 +45,15 @@
                     }
 
                     <div class="auth-field">
-                        <label class="auth-label">Full name</label>
-                        <InputText class="auth-input" placeholder="Sarah Mitchell" @bind-Value="model.FullName" />
-                        <ValidationMessage For="() => model.FullName" class="auth-error" />
+                        <label class="auth-label">First name</label>
+                        <InputText class="auth-input" placeholder="Sarah" @bind-Value="model.FirstName" />
+                        <ValidationMessage For="() => model.FirstName" class="auth-error" />
+                    </div>
+
+                    <div class="auth-field">
+                        <label class="auth-label">Last name</label>
+                        <InputText class="auth-input" placeholder="Mitchell" @bind-Value="model.LastName" />
+                        <ValidationMessage For="() => model.LastName" class="auth-error" />
                     </div>
 
                     <div class="auth-field">
@@ -100,12 +108,15 @@
         </div>
 
         <p class="auth-footer-link">
-            Already have an account? <a href="/login">Sign in</a>
+            Already have an account? <a href="@(string.IsNullOrEmpty(ReturnUrl) ? "/login" : $"/login?returnUrl={System.Net.WebUtility.UrlEncode(ReturnUrl)}")">Sign in</a>
         </p>
     </div>
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
     private readonly RegisterModel model = new();
     private bool submitted;
     private string? errorMessage;
@@ -155,15 +166,11 @@
             return;
         }
 
-        var nameParts = model.FullName.Trim().Split(' ', 2);
-        var firstName = nameParts[0];
-        var lastName = nameParts.Length > 1 ? nameParts[1] : string.Empty;
-
         var hasher = new PasswordHasher<User>();
         var user = new User
         {
-            FirstName = firstName,
-            LastName = lastName,
+            FirstName = model.FirstName.Trim(),
+            LastName = model.LastName.Trim(),
             Email = model.Email,
             Phone = model.Phone,
             Role = "Client",
@@ -173,14 +180,28 @@
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        submitted = true;
+        await EmailSender.SendAsync(
+            user.Email,
+            "Welcome to Fargo Spa and Wellness",
+            $"<p>Hi {user.FirstName},</p><p>Your account has been created. We look forward to seeing you at Fargo Spa and Wellness.</p>");
+
+        if (!string.IsNullOrEmpty(ReturnUrl))
+        {
+            NavigationManager.NavigateTo($"/login?returnUrl={System.Net.WebUtility.UrlEncode(ReturnUrl)}");
+        }
+        else
+        {
+            submitted = true;
+        }
     }
 
     private class RegisterModel
     {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Full name is required")]
-        [System.ComponentModel.DataAnnotations.MinLength(2, ErrorMessage = "Enter your full name")]
-        public string FullName { get; set; } = string.Empty;
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "First name is required")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Last name is required")]
+        public string LastName { get; set; } = string.Empty;
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Email is required")]
         [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Enter a valid email address")]
