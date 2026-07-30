@@ -2,9 +2,11 @@
 @rendermode InteractiveServer
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IEmailSender EmailSender
 
 <PageTitle>Create an Account - Fargo Spa and Wellness</PageTitle>
 
@@ -173,6 +175,11 @@
 
         db.Users.Add(user);
         await db.SaveChangesAsync();
+
+        await EmailSender.SendAsync(
+            user.Email,
+            "Welcome to Fargo Spa and Wellness",
+            $"<p>Hi {user.FirstName},</p><p>Your account has been created. We look forward to seeing you at Fargo Spa and Wellness.</p>");
 
         submitted = true;
     }
