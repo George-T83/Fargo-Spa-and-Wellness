@@ -1,4 +1,5 @@
 @page "/"
+@using Family_and_Spa_Wellness.Models
 
 <PageTitle>Fargo Spa and Wellness</PageTitle>
 
@@ -14,7 +15,7 @@
                     body rituals, every treatment is crafted to restore your natural balance.
                 </p>
                 <div class="d-flex flex-wrap gap-3 mt-4">
-                    <a href="#services" class="btn btn-spa-primary btn-lg">Book Your Retreat</a>
+                    <a href="/book" class="btn btn-spa-primary btn-lg">Book Your Retreat</a>
                     <a href="/services" class="btn btn-spa-secondary btn-lg">Explore Treatments &rarr;</a>
                 </div>
             </div>
@@ -34,7 +35,7 @@
         <div class="row g-4 mt-2">
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">&#129740;</div>
+                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Facial & Skincare")</div>
                     <p class="service-category">Facial &amp; Skincare</p>
                     <h3 class="service-name">Anti-Aging Collagen Facial</h3>
                     <p class="service-description">A collagen-boosting treatment targeting fine lines and loss of elasticity.</p>
@@ -42,24 +43,24 @@
             </div>
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">&#128167;</div>
-                    <p class="service-category">Body Treatments</p>
+                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Body")</div>
+                    <p class="service-category">Body</p>
                     <h3 class="service-name">Aromatherapy Body Wrap</h3>
                     <p class="service-description">A detoxifying wrap infused with essential oils to nourish and soften the skin.</p>
                 </a>
             </div>
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">&#127788;&#65039;</div>
-                    <p class="service-category">Wellness &amp; Add-Ons</p>
+                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Wellness")</div>
+                    <p class="service-category">Wellness</p>
                     <h3 class="service-name">Aromatherapy Enhancement</h3>
                     <p class="service-description">Add a custom essential oil blend to any massage or body treatment.</p>
                 </a>
             </div>
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">&#127807;</div>
-                    <p class="service-category">Body Treatments</p>
+                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Body")</div>
+                    <p class="service-category">Body</p>
                     <h3 class="service-name">Body Polish &amp; Buff</h3>
                     <p class="service-description">A gentle, all-over exfoliating polish that leaves skin smooth, soft, and radiant.</p>
                 </a>
@@ -70,17 +71,11 @@
 
 <section id="testimonials" class="testimonial-section">
     <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8 text-center">
-                <div class="testimonial-quote-mark">&ldquo;</div>
-                <p class="testimonial-quote">
-                    Fargo Spa is my favorite way to unwind. The staff are attentive, the space is
-                    beautiful, and I always leave feeling completely renewed.
-                </p>
-                <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-                <p class="testimonial-author">A Valued Client</p>
-            </div>
+        <div class="text-center mb-4">
+            <p class="eyebrow">Client Stories</p>
+            <h2 class="section-title">What our guests are saying</h2>
         </div>
+        <TestimonialsSection />
     </div>
 </section>
 
@@ -94,8 +89,8 @@
                 take care of the rest.
             </p>
             <div class="d-flex flex-wrap gap-3 justify-content-center mt-4">
-                <a href="#services" class="btn btn-spa-primary btn-lg">Book a Visit</a>
-                <a href="#services" class="btn btn-spa-ghost btn-lg">Read Reviews</a>
+                <a href="/book" class="btn btn-spa-primary btn-lg">Book a Visit</a>
+                <a href="#testimonials" class="btn btn-spa-ghost btn-lg">Read Reviews</a>
             </div>
         </div>
     </div>

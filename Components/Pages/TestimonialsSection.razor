@@ -1,0 +1,51 @@
+﻿@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+
+@if (testimonials is null)
+{
+    <p class="text-center py-4">Loading reviews...</p>
+}
+else if (testimonials.Count == 0)
+{
+    <p class="text-center py-4">No reviews yet — be the first to share your experience!</p>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var t in testimonials)
+        {
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm p-4">
+                    <div class="mb-2">
+                        @for (int i = 0; i < 5; i++)
+                        {
+                            <span style="color: @(i < t.Rating ? "#d4af37" : "#ddd");">&#9733;</span>
+                        }
+                    </div>
+                    <p class="fst-italic">"@t.ReviewText"</p>
+                    <p class="text-muted mb-0 mt-auto">
+                        &mdash; @(t.Client?.FirstName ?? "A Client") @(t.Client is not null ? t.Client.LastName[0] + "." : "")
+                    </p>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Testimonial>? testimonials;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+
+        // Only approved testimonials are shown publicly (FSW-9 acceptance criteria).
+        testimonials = await db.Testimonials
+            .Include(t => t.Client)
+            .Where(t => t.ApprovalStatus == "Approved")
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+}

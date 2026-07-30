@@ -1,14 +1,4 @@
-﻿@page "/login"
-@attribute [StreamRendering(false)]
-@using System.Security.Claims
-@using Family_and_Spa_Wellness.Data
-@using Family_and_Spa_Wellness.Models
-@using Microsoft.AspNetCore.Authentication
-@using Microsoft.AspNetCore.Authentication.Cookies
-@using Microsoft.AspNetCore.Identity
-@using Microsoft.EntityFrameworkCore
-@inject IDbContextFactory<AppDbContext> DbContextFactory
-@inject NavigationManager Navigation
+@page "/login"
 
 <PageTitle>Sign In - Fargo Spa and Wellness</PageTitle>
 
@@ -23,99 +13,57 @@
                     <path d="M12 21c0-2.5 2-2.5 2-5" />
                 </svg>
             </div>
-            <h1 class="auth-title">Sign in</h1>
-            <p class="auth-subtitle">Welcome back to Fargo Spa and Wellness</p>
+            <h1 class="auth-title">Welcome back</h1>
+            <p class="auth-subtitle">Sign in to manage your appointments and bookings</p>
         </div>
 
         <div class="auth-card">
-            <EditForm Model="Input" FormName="login" OnValidSubmit="HandleLogin" method="post">
-                <DataAnnotationsValidator />
-                <ValidationSummary class="alert alert-danger" />
+            @if (Error)
+            {
+                <div class="alert alert-danger" role="alert">Incorrect email or password. Please try again.</div>
+            }
 
-                @if (!string.IsNullOrEmpty(errorMessage))
+            <form method="post" action="/account/login">
+                @if (!string.IsNullOrEmpty(ReturnUrl))
                 {
-                    <div class="alert alert-danger" role="alert">@errorMessage</div>
+                    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
                 }
-
                 <div class="auth-field">
                     <label class="auth-label">Email address</label>
-                    <InputText type="email" class="auth-input" placeholder="you@email.com" @bind-Value="Input.Email" />
-                    <ValidationMessage For="() => Input.Email" class="auth-error" />
+                    <div class="auth-input-wrap">
+                        <span class="auth-input-icon">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></svg>
+                        </span>
+                        <input type="email" name="email" class="auth-input has-icon" placeholder="you@email.com" required />
+                    </div>
                 </div>
 
                 <div class="auth-field">
                     <label class="auth-label">Password</label>
-                    <InputText type="password" class="auth-input" placeholder="Your password" @bind-Value="Input.Password" />
-                    <ValidationMessage For="() => Input.Password" class="auth-error" />
+                    <div class="auth-input-wrap">
+                        <span class="auth-input-icon">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                        </span>
+                        <input type="password" name="password" class="auth-input has-icon" placeholder="Enter your password" required />
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-spa-primary w-100">Sign in &rarr;</button>
-            </EditForm>
+            </form>
         </div>
 
         <p class="auth-footer-link">
-            Don't have an account? <a href="/register">Create one</a>
+            New to Fargo Spa? <a href="@(string.IsNullOrEmpty(ReturnUrl) ? "/register" : $"/register?returnUrl={System.Net.WebUtility.UrlEncode(ReturnUrl)}")">Create an account</a>
         </p>
     </div>
 </div>
 
 @code {
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? ErrorParam { get; set; }
 
-    [SupplyParameterFromForm]
-    private LoginModel Input { get; set; } = new();
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
 
-    [SupplyParameterFromQuery]
-    private string? ReturnUrl { get; set; }
-
-    private string? errorMessage;
-
-    private async Task HandleLogin()
-    {
-        errorMessage = null;
-
-        await using var db = await DbContextFactory.CreateDbContextAsync();
-        var user = await db.Users.SingleOrDefaultAsync(u => u.Email == Input.Email);
-
-        // Deliberately generic message for both "no such user" and "wrong
-        // password" - doesn't reveal which one failed.
-        if (user is null)
-        {
-            errorMessage = "Invalid email or password.";
-            return;
-        }
-
-        var hasher = new PasswordHasher<User>();
-        var result = hasher.VerifyHashedPassword(user, user.PasswordHash, Input.Password);
-        if (result == PasswordVerificationResult.Failed)
-        {
-            errorMessage = "Invalid email or password.";
-            return;
-        }
-
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.FullName),
-            new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Role, user.Role),
-        };
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-
-        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
-
-        Navigation.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl, forceLoad: true);
-    }
-
-    private class LoginModel
-    {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Email is required")]
-        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Enter a valid email address")]
-        public string Email { get; set; } = string.Empty;
-
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Password is required")]
-        public string Password { get; set; } = string.Empty;
-    }
+    private bool Error => ErrorParam == "1";
 }

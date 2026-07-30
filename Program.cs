@@ -1,7 +1,10 @@
 using Family_and_Spa_Wellness.Components;
 using Family_and_Spa_Wellness.Data;
+using Family_and_Spa_Wellness.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+
+LoadDotEnv(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,23 +12,33 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("Default")));
-
-// --- Authentication & Authorization ---
-// Required for [Authorize] attributes (e.g. FSW-23's admin-only page) and
-// for cookie-based sessions (FSW-11) to actually function.
 builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddAuthorization();
-builder.Services
-    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.LoginPath = "/login";
         options.AccessDeniedPath = "/login";
-        options.ExpireTimeSpan = TimeSpan.FromDays(7);
+        options.ExpireTimeSpan = TimeSpan.FromDays(14);
         options.SlidingExpiration = true;
     });
+builder.Services.AddAuthorization();
+
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("Default")));
+
+builder.Services.Configure<SmtpOptions>(options =>
+{
+    options.Host = builder.Configuration["SMTP_HOST"] ?? options.Host;
+    if (int.TryParse(builder.Configuration["SMTP_PORT"], out var port))
+    {
+        options.Port = port;
+    }
+    options.Login = builder.Configuration["SMTP_LOGIN"] ?? options.Login;
+    options.Password = builder.Configuration["SMTP_PASSWORD"] ?? options.Password;
+    options.FromEmail = builder.Configuration["SMTP_FROM_EMAIL"] ?? options.FromEmail;
+    options.FromName = builder.Configuration["SMTP_FROM_NAME"] ?? options.FromName;
+});
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
 var app = builder.Build();
 
@@ -48,11 +61,44 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.UseAntiforgery();
+
+app.MapAccountAuthEndpoints();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+static void LoadDotEnv(string path)
+{
+    if (!File.Exists(path))
+    {
+        return;
+    }
+
+    foreach (var line in File.ReadAllLines(path))
+    {
+        var trimmed = line.Trim();
+        if (trimmed.Length == 0 || trimmed.StartsWith('#'))
+        {
+            continue;
+        }
+
+        var separatorIndex = trimmed.IndexOf('=');
+        if (separatorIndex <= 0)
+        {
+            continue;
+        }
+
+        var key = trimmed[..separatorIndex].Trim();
+        var value = trimmed[(separatorIndex + 1)..].Trim().Trim('"');
+
+        // Don't clobber a value already set in the real process environment.
+        if (Environment.GetEnvironmentVariable(key) is null)
+        {
+            Environment.SetEnvironmentVariable(key, value);
+        }
+    }
+}
