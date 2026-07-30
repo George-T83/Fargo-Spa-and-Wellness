@@ -5,6 +5,7 @@
 @using Family_and_Spa_Wellness.Services
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IEmailSender EmailSender
 
@@ -185,10 +186,13 @@
                             </div>
                         </div>
 
-                        <div class="auth-field">
-                            <label class="auth-label">Your email</label>
-                            <input type="email" class="auth-input" placeholder="you@email.com" @bind="email" @bind:event="oninput" @onblur="CheckEmailAsync" />
-                        </div>
+                        @if (!isAuthenticated)
+                        {
+                            <div class="auth-field">
+                                <label class="auth-label">Your email</label>
+                                <input type="email" class="auth-input" placeholder="you@email.com" @bind="email" @bind:event="oninput" @onblur="CheckEmailAsync" />
+                            </div>
+                        }
 
                         @if (emailChecked && !accountExists)
                         {
@@ -249,6 +253,10 @@
     private DateTime selectedDate = DateTime.Today;
     private List<TimeSlot> slots = new();
     private TimeSlot? nextAvailableSlot;
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private bool isAuthenticated;
     private DateTime? selectedStart;
     private string email = string.Empty;
     private bool emailChecked;
@@ -275,6 +283,34 @@
         {
             SelectService(ServiceId.Value);
         }
+
+        var sessionEmail = await GetSessionEmailAsync();
+        if (sessionEmail is not null)
+        {
+            email = sessionEmail;
+            isAuthenticated = true;
+            accountExists = true;
+            emailChecked = true;
+        }
+    }
+
+    private async Task<string?> GetSessionEmailAsync()
+    {
+        if (AuthStateTask is null)
+        {
+            return null;
+        }
+
+        var authState = await AuthStateTask;
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            return null;
+        }
+
+        var emailClaim = user.FindFirst(c => c.Type == ClaimTypes.Email)?.Value
+            ?? user.FindFirst(c => c.Type == "email")?.Value;
+        return string.IsNullOrEmpty(emailClaim) ? null : emailClaim;
     }
 
     private static DateTime StartOfWeek(DateTime date) => date.Date.AddDays(-(int)date.DayOfWeek);
@@ -442,6 +478,13 @@
         {
             errorMessage = "Please select a treatment and a time slot.";
             return;
+        }
+
+        var sessionEmail = await GetSessionEmailAsync();
+        if (sessionEmail is not null)
+        {
+            email = sessionEmail;
+            isAuthenticated = true;
         }
 
         if (string.IsNullOrWhiteSpace(email))
