@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 
@@ -183,9 +184,34 @@
                         </div>
 
                         <div class="auth-field">
-                            <label class="auth-label">Email on your account</label>
-                            <input type="email" class="auth-input" placeholder="you@email.com" @bind="email" @bind:event="oninput" />
+                            <label class="auth-label">Your email</label>
+                            <input type="email" class="auth-input" placeholder="you@email.com" @bind="email" @bind:event="oninput" @onblur="CheckEmailAsync" />
                         </div>
+
+                        @if (emailChecked && !accountExists)
+                        {
+                            <p class="booking-card-subtitle">We don't have an account for that email yet &mdash; fill in a few details to create one and finish booking.</p>
+
+                            <div class="auth-field">
+                                <label class="auth-label">First name</label>
+                                <input class="auth-input" placeholder="Sarah" @bind="newFirstName" @bind:event="oninput" />
+                            </div>
+
+                            <div class="auth-field">
+                                <label class="auth-label">Last name</label>
+                                <input class="auth-input" placeholder="Mitchell" @bind="newLastName" @bind:event="oninput" />
+                            </div>
+
+                            <div class="auth-field">
+                                <label class="auth-label">Phone number</label>
+                                <input class="auth-input" placeholder="(701) 555-0142" @bind="newPhone" @bind:event="oninput" />
+                            </div>
+
+                            <div class="auth-field">
+                                <label class="auth-label">Create a password</label>
+                                <input type="password" class="auth-input" placeholder="Create a password" @bind="newPassword" @bind:event="oninput" />
+                            </div>
+                        }
 
                         <label class="booking-consent">
                             <input type="checkbox" @bind="consentGiven" />
@@ -195,7 +221,7 @@
                         <div class="booking-actions">
                             <button type="button" class="btn btn-spa-secondary" @onclick="GoToStep2">&larr; Back</button>
                             <button type="button" class="btn btn-spa-primary" disabled="@(!consentGiven)" @onclick="HandleBooking">
-                                Confirm Booking
+                                @(emailChecked && !accountExists ? "Create Account & Book" : "Confirm Booking")
                             </button>
                         </div>
                     }
@@ -223,6 +249,12 @@
     private TimeSlot? nextAvailableSlot;
     private DateTime? selectedStart;
     private string email = string.Empty;
+    private bool emailChecked;
+    private bool accountExists;
+    private string newFirstName = string.Empty;
+    private string newLastName = string.Empty;
+    private string newPhone = string.Empty;
+    private string newPassword = string.Empty;
     private bool consentGiven;
     private string? errorMessage;
     private bool submitted;
@@ -387,6 +419,19 @@
         selectedStart = slot.Start;
     }
 
+    private async Task CheckEmailAsync()
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            emailChecked = false;
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        accountExists = await db.Users.AnyAsync(u => u.Email == email);
+        emailChecked = true;
+    }
+
     private async Task HandleBooking()
     {
         errorMessage = null;
@@ -399,7 +444,7 @@
 
         if (string.IsNullOrWhiteSpace(email))
         {
-            errorMessage = "Please enter the email you registered with.";
+            errorMessage = "Please enter your email.";
             return;
         }
 
@@ -408,8 +453,34 @@
         var client = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
         if (client is null)
         {
-            errorMessage = "No account found with that email. Please register first.";
-            return;
+            if (string.IsNullOrWhiteSpace(newFirstName) || string.IsNullOrWhiteSpace(newLastName) ||
+                string.IsNullOrWhiteSpace(newPhone) || string.IsNullOrWhiteSpace(newPassword))
+            {
+                emailChecked = true;
+                accountExists = false;
+                errorMessage = "Please fill in your name, phone, and a password to create your account.";
+                return;
+            }
+
+            if (newPassword.Length < 8)
+            {
+                errorMessage = "Password must be at least 8 characters.";
+                return;
+            }
+
+            client = new User
+            {
+                FirstName = newFirstName.Trim(),
+                LastName = newLastName.Trim(),
+                Email = email,
+                Phone = newPhone,
+                Role = "Client",
+            };
+            var hasher = new PasswordHasher<User>();
+            client.PasswordHash = hasher.HashPassword(client, newPassword);
+
+            db.Users.Add(client);
+            await db.SaveChangesAsync();
         }
 
         var service = await db.Services.FindAsync(selectedServiceId);
