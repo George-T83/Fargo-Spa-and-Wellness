@@ -1,0 +1,129 @@
+@page "/dashboard"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+
+<PageTitle>My Dashboard - Fargo Spa and Wellness</PageTitle>
+
+<section class="catalog-header">
+    <div class="container">
+        <p class="eyebrow">Client Portal</p>
+        <h1 class="section-title">@(user is null ? "Welcome" : $"Welcome, {user.FirstName}")</h1>
+        <p class="catalog-subtitle">Your profile and appointment history.</p>
+    </div>
+</section>
+
+<section class="services-section">
+    <div class="container">
+        @if (user is null)
+        {
+            <p>Loading...</p>
+        }
+        else
+        {
+            <div class="dashboard-grid">
+                <div class="auth-card dashboard-profile">
+                    <h2 class="booking-card-title">@user.FirstName @user.LastName</h2>
+                    <p class="booking-card-subtitle">Member since @user.CreatedAt.ToString("MMMM yyyy")</p>
+                    <div class="dashboard-profile-row">
+                        <span class="dashboard-profile-label">Email</span>
+                        <span>@user.Email</span>
+                    </div>
+                    <div class="dashboard-profile-row">
+                        <span class="dashboard-profile-label">Phone</span>
+                        <span>@user.Phone</span>
+                    </div>
+                    <div class="dashboard-profile-row">
+                        <span class="dashboard-profile-label">Upcoming</span>
+                        <span>@upcoming.Count</span>
+                    </div>
+                    <a href="/book" class="btn btn-spa-primary w-100 mt-3">Book a Visit</a>
+                </div>
+
+                <div class="dashboard-appointments">
+                    <div class="auth-card">
+                        <h2 class="booking-card-title">Upcoming Appointments</h2>
+                        @if (upcoming.Count == 0)
+                        {
+                            <p class="booking-card-subtitle">No upcoming appointments. <a href="/book">Book your next visit</a>.</p>
+                        }
+                        else
+                        {
+                            @foreach (var a in upcoming)
+                            {
+                                <div class="dashboard-appt-row">
+                                    <div>
+                                        <p class="dashboard-appt-service">@a.Service?.Name</p>
+                                        <p class="dashboard-appt-time">@a.StartTime.ToString("dddd, MMMM d") at @a.StartTime.ToString("h:mm tt")</p>
+                                    </div>
+                                    <span class="dashboard-appt-price">@a.Service?.Price.ToString("C")</span>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <div class="auth-card mt-3">
+                        <h2 class="booking-card-title">Past Appointments</h2>
+                        @if (past.Count == 0)
+                        {
+                            <p class="booking-card-subtitle">No past appointments yet.</p>
+                        }
+                        else
+                        {
+                            @foreach (var a in past)
+                            {
+                                <div class="dashboard-appt-row past">
+                                    <div>
+                                        <p class="dashboard-appt-service">@a.Service?.Name</p>
+                                        <p class="dashboard-appt-time">@a.StartTime.ToString("dddd, MMMM d") at @a.StartTime.ToString("h:mm tt")</p>
+                                    </div>
+                                    <span class="dashboard-appt-price">@a.Service?.Price.ToString("C")</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private User? user;
+    private List<Appointment> upcoming = new();
+    private List<Appointment> past = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null)
+        {
+            return;
+        }
+
+        var authState = await AuthStateTask;
+        var idClaim = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idClaim, out var userId))
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        user = await db.Users.FindAsync(userId);
+
+        var appointments = await db.Appointments
+            .Include(a => a.Service)
+            .Where(a => a.ClientId == userId)
+            .OrderBy(a => a.StartTime)
+            .ToListAsync();
+
+        upcoming = appointments.Where(a => a.StartTime >= DateTime.Now).ToList();
+        past = appointments.Where(a => a.StartTime < DateTime.Now).OrderByDescending(a => a.StartTime).ToList();
+    }
+}

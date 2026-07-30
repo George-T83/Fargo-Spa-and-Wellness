@@ -49,7 +49,7 @@ public static class AccountAuthEndpoints
                 new ClaimsPrincipal(identity),
                 new AuthenticationProperties { IsPersistent = true });
 
-            var redirectUrl = "/";
+            var redirectUrl = user.Role == "Admin" ? "/admin" : "/dashboard";
             if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith("/") && !returnUrl.StartsWith("//") && !returnUrl.StartsWith("/\\"))
             {
                 redirectUrl = returnUrl;
