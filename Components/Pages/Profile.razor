@@ -1,0 +1,158 @@
+@page "/profile"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>My Profile - Fargo Spa and Wellness</PageTitle>
+
+<section class="catalog-header">
+    <div class="container">
+        <p class="eyebrow">Settings</p>
+        <h1 class="section-title">My Profile</h1>
+        <p class="catalog-subtitle">View and update your account details.</p>
+    </div>
+</section>
+
+<section class="services-section">
+    <div class="container" style="max-width: 28rem; margin: 0 auto;">
+        <div class="auth-card">
+            <EditForm Model="model" OnValidSubmit="HandleUpdate">
+                <DataAnnotationsValidator />
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger" role="alert">@errorMessage</div>
+                }
+
+                @if (!string.IsNullOrEmpty(successMessage))
+                {
+                    <div class="alert alert-success" role="alert">@successMessage</div>
+                }
+
+                <div class="auth-field">
+                    <label class="auth-label">First name</label>
+                    <InputText class="auth-input" placeholder="First Name" @bind-Value="model.FirstName" />
+                    <ValidationMessage For="() => model.FirstName" class="auth-error" />
+                </div>
+
+                <div class="auth-field">
+                    <label class="auth-label">Last name</label>
+                    <InputText class="auth-input" placeholder="Last Name" @bind-Value="model.LastName" />
+                    <ValidationMessage For="() => model.LastName" class="auth-error" />
+                </div>
+
+                <div class="auth-field">
+                    <label class="auth-label">Email address (read-only)</label>
+                    <div class="auth-input-wrap">
+                        <span class="auth-input-icon">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="4" width="20" height="16" rx="2" />
+                                <path d="m22 7-10 5L2 7" />
+                            </svg>
+                        </span>
+                        <input type="email" class="auth-input has-icon" value="@model.Email" disabled />
+                    </div>
+                </div>
+
+                <div class="auth-field">
+                    <label class="auth-label">Phone number</label>
+                    <InputText class="auth-input" placeholder="Phone Number" @bind-Value="model.Phone" />
+                    <ValidationMessage For="() => model.Phone" class="auth-error" />
+                </div>
+
+                <button type="submit" class="btn btn-spa-primary w-100">Save changes</button>
+            </EditForm>
+        </div>
+    </div>
+</section>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private readonly ProfileModel model = new();
+    private string? errorMessage;
+    private string? successMessage;
+    private int currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null)
+        {
+            return;
+        }
+
+        var authState = await AuthStateTask;
+        var userState = authState.User;
+
+        if (userState.Identity?.IsAuthenticated == true)
+        {
+            var idClaim = userState.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(idClaim, out currentUserId))
+            {
+                await LoadProfileAsync();
+            }
+        }
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var user = await db.Users.FindAsync(currentUserId);
+        if (user is not null)
+        {
+            model.FirstName = user.FirstName;
+            model.LastName = user.LastName;
+            model.Phone = user.Phone;
+            model.Email = user.Email;
+        }
+    }
+
+    private async Task HandleUpdate()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        if (currentUserId == 0)
+        {
+            errorMessage = "User session is invalid.";
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var user = await db.Users.FindAsync(currentUserId);
+        if (user is null)
+        {
+            errorMessage = "Your user account could not be found.";
+            return;
+        }
+
+        user.FirstName = model.FirstName.Trim();
+        user.LastName = model.LastName.Trim();
+        user.Phone = model.Phone;
+
+        await db.SaveChangesAsync();
+
+        successMessage = "Profile updated successfully!";
+    }
+
+    private class ProfileModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "First name is required")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Last name is required")]
+        public string LastName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Phone number is required")]
+        [System.ComponentModel.DataAnnotations.Phone(ErrorMessage = "Enter a valid phone number")]
+        public string Phone { get; set; } = string.Empty;
+
+        public string Email { get; set; } = string.Empty;
+    }
+}
