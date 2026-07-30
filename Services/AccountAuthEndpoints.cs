@@ -17,6 +17,7 @@ public static class AccountAuthEndpoints
             var form = await http.Request.ReadFormAsync();
             var email = form["email"].ToString().Trim();
             var password = form["password"].ToString();
+            var returnUrl = form["returnUrl"].ToString();
 
             await using var db = await dbFactory.CreateDbContextAsync();
             var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
@@ -27,6 +28,10 @@ public static class AccountAuthEndpoints
 
             if (!valid)
             {
+                if (!string.IsNullOrEmpty(returnUrl))
+                {
+                    return Results.Redirect($"/login?error=1&returnUrl={System.Net.WebUtility.UrlEncode(returnUrl)}");
+                }
                 return Results.Redirect("/login?error=1");
             }
 
@@ -44,7 +49,13 @@ public static class AccountAuthEndpoints
                 new ClaimsPrincipal(identity),
                 new AuthenticationProperties { IsPersistent = true });
 
-            return Results.Redirect("/");
+            var redirectUrl = "/";
+            if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith("/") && !returnUrl.StartsWith("//") && !returnUrl.StartsWith("/\\"))
+            {
+                redirectUrl = returnUrl;
+            }
+
+            return Results.Redirect(redirectUrl);
         });
 
         app.MapPost("/account/logout", async (HttpContext http) =>
