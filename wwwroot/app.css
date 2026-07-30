@@ -229,6 +229,118 @@ a.service-card:hover {
     margin-bottom: 0;
 }
 
+.catalog-filter-bar-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 1rem 0;
+    background-color: var(--spa-sand-50);
+}
+
+.catalog-filter-bar {
+    background-color: #fff;
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.85rem;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    box-shadow: 0 1px 3px rgba(28, 29, 34, 0.06);
+}
+
+@media (min-width: 992px) {
+    .catalog-filter-bar {
+        flex-direction: row;
+        align-items: center;
+    }
+}
+
+.filter-search-wrap {
+    position: relative;
+    flex: 1;
+}
+
+.filter-search-icon {
+    position: absolute;
+    left: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--spa-ink-400);
+}
+
+.filter-search-input {
+    width: 100%;
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.6rem;
+    padding: 0.6rem 0.85rem 0.6rem 2.5rem;
+    font-size: 0.9rem;
+    color: var(--spa-ink-800);
+    background-color: #fff;
+}
+
+.filter-search-input:focus {
+    outline: none;
+    border-color: var(--spa-sage-500);
+    box-shadow: 0 0 0 3px rgba(99, 138, 84, 0.15);
+}
+
+.filter-chip-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+}
+
+.filter-chip {
+    flex-shrink: 0;
+    padding: 0.5rem 0.9rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    background-color: var(--spa-sand-50);
+    border: 1px solid transparent;
+    color: var(--spa-ink-600);
+    transition: background-color 0.15s ease;
+}
+
+.filter-chip:hover {
+    background-color: var(--spa-sand-100);
+}
+
+.filter-chip.active {
+    background-color: var(--spa-ink-900);
+    color: #fff;
+}
+
+.filter-chip.active:hover {
+    background-color: var(--spa-ink-900);
+}
+
+.catalog-empty-state {
+    background-color: #fff;
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.85rem;
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.catalog-empty-icon {
+    font-size: 1.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.catalog-empty-title {
+    color: var(--spa-ink-800);
+    margin-bottom: 0.25rem;
+}
+
+.catalog-empty-subtitle {
+    color: var(--spa-ink-500, var(--spa-ink-600));
+    margin-bottom: 0;
+}
+
 .testimonial-section {
     background: linear-gradient(135deg, var(--spa-sage-50), var(--spa-sand-50));
     border-top: 1px solid rgba(231, 220, 205, 0.6);

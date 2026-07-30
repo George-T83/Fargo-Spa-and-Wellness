@@ -1,4 +1,5 @@
 @page "/"
+@using Family_and_Spa_Wellness.Models
 
 <PageTitle>Fargo Spa and Wellness</PageTitle>
 
@@ -34,7 +35,7 @@
         <div class="row g-4 mt-2">
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">&#129740;</div>
+                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Facial & Skincare")</div>
                     <p class="service-category">Facial &amp; Skincare</p>
                     <h3 class="service-name">Anti-Aging Collagen Facial</h3>
                     <p class="service-description">A collagen-boosting treatment targeting fine lines and loss of elasticity.</p>
@@ -42,7 +43,7 @@
             </div>
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">&#128167;</div>
+                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Body Treatments")</div>
                     <p class="service-category">Body Treatments</p>
                     <h3 class="service-name">Aromatherapy Body Wrap</h3>
                     <p class="service-description">A detoxifying wrap infused with essential oils to nourish and soften the skin.</p>
@@ -50,7 +51,7 @@
             </div>
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">&#127788;&#65039;</div>
+                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Wellness & Add-Ons")</div>
                     <p class="service-category">Wellness &amp; Add-Ons</p>
                     <h3 class="service-name">Aromatherapy Enhancement</h3>
                     <p class="service-description">Add a custom essential oil blend to any massage or body treatment.</p>
@@ -58,7 +59,7 @@
             </div>
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">&#127807;</div>
+                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Body Treatments")</div>
                     <p class="service-category">Body Treatments</p>
                     <h3 class="service-name">Body Polish &amp; Buff</h3>
                     <p class="service-description">A gentle, all-over exfoliating polish that leaves skin smooth, soft, and radiant.</p>
