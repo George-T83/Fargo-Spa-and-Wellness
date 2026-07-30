@@ -1,4 +1,5 @@
 @page "/services"
+@rendermode InteractiveServer
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
 @using Microsoft.EntityFrameworkCore
@@ -11,10 +12,29 @@
         <p class="eyebrow">Our Menu</p>
         <h1 class="section-title">Treatments &amp; Services</h1>
         <p class="catalog-subtitle">
-            Explore our full collection of spa treatments, each designed to restore body and mind.
+            Explore our full collection of spa treatments, each designed by our expert therapists to restore body and mind.
         </p>
     </div>
 </section>
+
+@if (services is not null && services.Count > 0)
+{
+    <div class="container catalog-filter-bar-wrap">
+        <div class="catalog-filter-bar">
+            <div class="filter-search-wrap">
+                <svg class="filter-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                <input class="filter-search-input" placeholder="Search treatments..." @bind="search" @bind:event="oninput" />
+            </div>
+            <div class="filter-chip-row">
+                <button type="button" class="filter-chip @(selectedCategory == "all" ? "active" : "")" @onclick='() => SelectCategory("all")'>All</button>
+                @foreach (var category in categories)
+                {
+                    <button type="button" class="filter-chip @(selectedCategory == category ? "active" : "")" @onclick="() => SelectCategory(category)">@category</button>
+                }
+            </div>
+        </div>
+    </div>
+}
 
 <section class="services-section">
     <div class="container">
@@ -26,18 +46,27 @@
         {
             <p>No treatments are available right now. Please check back soon.</p>
         }
+        else if (filteredServices.Count == 0)
+        {
+            <div class="catalog-empty-state">
+                <div class="catalog-empty-icon">&#10024;</div>
+                <h3 class="catalog-empty-title">No treatments found</h3>
+                <p class="catalog-empty-subtitle">Try a different search or category filter.</p>
+            </div>
+        }
         else
         {
             <div class="row g-4">
-                @foreach (var service in services)
+                @foreach (var service in filteredServices)
                 {
                     <div class="col-md-6 col-lg-4">
                         <div class="service-card h-100">
+                            <div class="service-icon">@ServiceCategoryIcon.GetIcon(service.Category)</div>
                             <p class="service-category">@service.Category</p>
                             <h3 class="service-name">@service.Name</h3>
                             <p class="service-description">@service.Description</p>
                             <div class="service-meta">
-                                <span>@service.DurationMinutes min</span>
+                                <span>@FormatDuration(service.DurationMinutes)</span>
                                 <span class="service-price">@service.Price.ToString("C")</span>
                             </div>
                             <a href="/book?serviceId=@service.Id" class="btn btn-spa-primary btn-sm w-100 mt-3">Book This Treatment</a>
@@ -51,6 +80,14 @@
 
 @code {
     private List<Service>? services;
+    private List<string> categories = new();
+    private string search = string.Empty;
+    private string selectedCategory = "all";
+
+    private List<Service> filteredServices =>
+        services is null
+            ? new List<Service>()
+            : services.Where(MatchesFilter).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -59,5 +96,31 @@
             .OrderBy(s => s.Category)
             .ThenBy(s => s.Name)
             .ToListAsync();
+
+        categories = services.Select(s => s.Category).Distinct().ToList();
+    }
+
+    private bool MatchesFilter(Service service)
+    {
+        var matchesSearch = string.IsNullOrWhiteSpace(search)
+            || service.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || service.Description.Contains(search, StringComparison.OrdinalIgnoreCase);
+
+        var matchesCategory = selectedCategory == "all" || service.Category == selectedCategory;
+
+        return matchesSearch && matchesCategory;
+    }
+
+    private void SelectCategory(string category)
+    {
+        selectedCategory = category;
+    }
+
+    private static string FormatDuration(int minutes)
+    {
+        var hours = minutes / 60;
+        var mins = minutes % 60;
+        if (hours == 0) return $"{mins} min";
+        return mins == 0 ? $"{hours}h" : $"{hours}h {mins}m";
     }
 }
