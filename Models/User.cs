@@ -10,4 +10,5 @@ public class User
     public string Phone { get; set; } = string.Empty;
     public string Role { get; set; } = "Client";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string FullName => $"{FirstName} {LastName}".Trim();
 }
