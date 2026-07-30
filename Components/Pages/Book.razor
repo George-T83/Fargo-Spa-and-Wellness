@@ -2,9 +2,11 @@
 @rendermode InteractiveServer
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IEmailSender EmailSender
 
 <PageTitle>Book an Appointment - Fargo Spa and Wellness</PageTitle>
 
@@ -510,6 +512,13 @@
             EndTime = end,
         });
         await db.SaveChangesAsync();
+
+        await EmailSender.SendAsync(
+            client.Email,
+            "Your Fargo Spa and Wellness booking is confirmed",
+            $"<p>Hi {client.FirstName},</p>" +
+            $"<p>You're booked for <strong>{service.Name}</strong> on {start:dddd, MMMM d} at {start:h:mm tt}.</p>" +
+            $"<p>We look forward to seeing you.</p>");
 
         confirmedService = service;
         confirmedStart = start;
