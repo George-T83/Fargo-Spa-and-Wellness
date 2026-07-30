@@ -1,0 +1,33 @@
+@page "/admin"
+@layout AdminLayout
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Admin Dashboard - Fargo Spa and Wellness</PageTitle>
+
+<div class="admin-page-header">
+    <h1>Dashboard</h1>
+    <p>Welcome back. Here's a quick overview of the admin portal.</p>
+</div>
+
+<div class="admin-card-grid">
+    <a href="/admin/calendar" class="admin-quick-card">
+        <h3>Master Calendar</h3>
+        <p>View all bookings, resolve conflicts, and apply overrides.</p>
+    </a>
+    <a href="/admin/services" class="admin-quick-card">
+        <h3>Service Catalog</h3>
+        <p>Add, edit, or retire treatments and pricing.</p>
+    </a>
+    <a href="/admin/users" class="admin-quick-card">
+        <h3>User Roles</h3>
+        <p>Manage Client, Provider, and Admin access.</p>
+    </a>
+    <a href="/admin/reporting" class="admin-quick-card">
+        <h3>Reporting</h3>
+        <p>Booking volume and revenue trends.</p>
+    </a>
+    <a href="/admin/testimonials" class="admin-quick-card">
+        <h3>Testimonials</h3>
+        <p>Approve or reject client reviews.</p>
+    </a>
+</div>
