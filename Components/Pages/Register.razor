@@ -7,6 +7,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IEmailSender EmailSender
+@inject NavigationManager NavigationManager
 
 <PageTitle>Create an Account - Fargo Spa and Wellness</PageTitle>
 
@@ -107,12 +108,15 @@
         </div>
 
         <p class="auth-footer-link">
-            Already have an account? <a href="/login">Sign in</a>
+            Already have an account? <a href="@(string.IsNullOrEmpty(ReturnUrl) ? "/login" : $"/login?returnUrl={System.Net.WebUtility.UrlEncode(ReturnUrl)}")">Sign in</a>
         </p>
     </div>
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
     private readonly RegisterModel model = new();
     private bool submitted;
     private string? errorMessage;
@@ -181,7 +185,14 @@
             "Welcome to Fargo Spa and Wellness",
             $"<p>Hi {user.FirstName},</p><p>Your account has been created. We look forward to seeing you at Fargo Spa and Wellness.</p>");
 
-        submitted = true;
+        if (!string.IsNullOrEmpty(ReturnUrl))
+        {
+            NavigationManager.NavigateTo($"/login?returnUrl={System.Net.WebUtility.UrlEncode(ReturnUrl)}");
+        }
+        else
+        {
+            submitted = true;
+        }
     }
 
     private class RegisterModel
