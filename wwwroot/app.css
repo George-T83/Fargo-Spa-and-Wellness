@@ -898,3 +898,119 @@ h1:focus {
     padding-top: 1rem;
     border-top: 1px solid var(--spa-sand-100);
 }
+.admin-page-header {
+    margin-bottom: 1.75rem;
+}
+
+.admin-page-header h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--spa-ink-800);
+    margin-bottom: 0.25rem;
+}
+
+.admin-page-header p {
+    color: var(--spa-ink-400);
+    margin: 0;
+}
+
+.admin-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.admin-quick-card {
+    display: block;
+    background-color: #fff;
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    text-decoration: none;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-quick-card:hover {
+    border-color: var(--spa-sage-500);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.admin-quick-card h3 {
+    color: var(--spa-ink-800);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.admin-quick-card p {
+    color: var(--spa-ink-400);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.admin-coming-soon {
+    background-color: #fff;
+    border: 1px dashed var(--spa-sand-300);
+    border-radius: 0.75rem;
+    padding: 2.5rem;
+    text-align: center;
+    color: var(--spa-ink-400);
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.dashboard-profile-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--spa-sand-100);
+    font-size: 0.9rem;
+}
+
+.dashboard-profile-label {
+    color: var(--spa-ink-400);
+}
+
+.dashboard-appt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--spa-sand-100);
+}
+
+.dashboard-appt-row:last-child {
+    border-bottom: none;
+}
+
+.dashboard-appt-row.past {
+    opacity: 0.7;
+}
+
+.dashboard-appt-service {
+    font-weight: 600;
+    color: var(--spa-ink-800);
+    margin: 0;
+}
+
+.dashboard-appt-time {
+    font-size: 0.85rem;
+    color: var(--spa-ink-400);
+    margin: 0;
+}
+
+.dashboard-appt-price {
+    font-weight: 600;
+    color: var(--spa-ink-800);
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
