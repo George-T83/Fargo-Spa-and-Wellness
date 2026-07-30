@@ -1,0 +1,121 @@
+﻿@page "/login"
+@attribute [StreamRendering(false)]
+@using System.Security.Claims
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject NavigationManager Navigation
+
+<PageTitle>Sign In - Fargo Spa and Wellness</PageTitle>
+
+<div class="auth-shell">
+    <div class="auth-shell-inner">
+        <div class="auth-header">
+            <div class="auth-icon">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5a3 3 0 1 1 3 3m-3-3a3 3 0 1 0-3 3m3-3v1M9 8a3 3 0 1 0 3 3M9 8h1m5 0a3 3 0 1 1-3 3m3-3h-1m-2 3v-1" />
+                    <path d="M12 8v13" />
+                    <path d="M12 21c0-2.5-2-2.5-2-5" />
+                    <path d="M12 21c0-2.5 2-2.5 2-5" />
+                </svg>
+            </div>
+            <h1 class="auth-title">Sign in</h1>
+            <p class="auth-subtitle">Welcome back to Fargo Spa and Wellness</p>
+        </div>
+
+        <div class="auth-card">
+            <EditForm Model="Input" FormName="login" OnValidSubmit="HandleLogin" method="post">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger" />
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger" role="alert">@errorMessage</div>
+                }
+
+                <div class="auth-field">
+                    <label class="auth-label">Email address</label>
+                    <InputText type="email" class="auth-input" placeholder="you@email.com" @bind-Value="Input.Email" />
+                    <ValidationMessage For="() => Input.Email" class="auth-error" />
+                </div>
+
+                <div class="auth-field">
+                    <label class="auth-label">Password</label>
+                    <InputText type="password" class="auth-input" placeholder="Your password" @bind-Value="Input.Password" />
+                    <ValidationMessage For="() => Input.Password" class="auth-error" />
+                </div>
+
+                <button type="submit" class="btn btn-spa-primary w-100">Sign in &rarr;</button>
+            </EditForm>
+        </div>
+
+        <p class="auth-footer-link">
+            Don't have an account? <a href="/register">Create one</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private LoginModel Input { get; set; } = new();
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? errorMessage;
+
+    private async Task HandleLogin()
+    {
+        errorMessage = null;
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Email == Input.Email);
+
+        // Deliberately generic message for both "no such user" and "wrong
+        // password" - doesn't reveal which one failed.
+        if (user is null)
+        {
+            errorMessage = "Invalid email or password.";
+            return;
+        }
+
+        var hasher = new PasswordHasher<User>();
+        var result = hasher.VerifyHashedPassword(user, user.PasswordHash, Input.Password);
+        if (result == PasswordVerificationResult.Failed)
+        {
+            errorMessage = "Invalid email or password.";
+            return;
+        }
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.FullName),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Role, user.Role),
+        };
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+
+        Navigation.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl, forceLoad: true);
+    }
+
+    private class LoginModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Email is required")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Enter a valid email address")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Password is required")]
+        public string Password { get; set; } = string.Empty;
+    }
+}
