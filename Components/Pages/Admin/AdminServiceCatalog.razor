@@ -59,7 +59,18 @@ else
                 </div>
                 <div class="admin-form-field">
                     <label>Category</label>
-                    <input type="text" @bind="editingService.Category" />
+                    <select class="admin-role-select" value="@CategorySelectValue" @onchange="OnCategorySelectChanged">
+                        @foreach (var category in categories)
+                        {
+                            <option value="@category">@category</option>
+                        }
+                        <option value="@NewCategorySentinel">+ Add new category...</option>
+                    </select>
+                    @if (isAddingNewCategory)
+                    {
+                        <input type="text" class="mt-2" placeholder="New category name"
+                               @bind="editingService.Category" @bind:event="oninput" />
+                    }
                 </div>
                 <div class="admin-form-field">
                     <label>Duration (minutes)</label>
@@ -128,6 +139,10 @@ else
     private Service? editingService;
     private List<string> validationErrors = new();
     private string? statusMessage;
+    private bool isAddingNewCategory;
+    private const string NewCategorySentinel = "__new__";
+
+    private string CategorySelectValue => isAddingNewCategory ? NewCategorySentinel : (editingService?.Category ?? "");
 
     private List<Service> FilteredServices => (services ?? new())
         .Where(s => selectedCategory == "All" || s.Category == selectedCategory)
@@ -151,7 +166,8 @@ else
 
     private void StartCreate()
     {
-        editingService = new Service { IsActive = true };
+        editingService = new Service { IsActive = true, Category = categories.FirstOrDefault() ?? "" };
+        isAddingNewCategory = categories.Count == 0;
         validationErrors.Clear();
         statusMessage = null;
     }
@@ -170,6 +186,7 @@ else
             Price = service.Price,
             IsActive = service.IsActive,
         };
+        isAddingNewCategory = false;
         validationErrors.Clear();
         statusMessage = null;
     }
@@ -177,7 +194,28 @@ else
     private void CancelEdit()
     {
         editingService = null;
+        isAddingNewCategory = false;
         validationErrors.Clear();
+    }
+
+    private void OnCategorySelectChanged(ChangeEventArgs e)
+    {
+        if (editingService is null)
+        {
+            return;
+        }
+
+        var value = e.Value?.ToString() ?? "";
+        if (value == NewCategorySentinel)
+        {
+            isAddingNewCategory = true;
+            editingService.Category = "";
+        }
+        else
+        {
+            isAddingNewCategory = false;
+            editingService.Category = value;
+        }
     }
 
     private async Task SaveAsync()

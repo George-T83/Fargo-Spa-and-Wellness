@@ -1710,7 +1710,7 @@ h1:focus {
 .testimonial-quote-icon {
     color: var(--spa-sand-300);
     font-weight: 400;
-    margin-right: 0.15rem;
+    margin: 0 0.15rem;
 }
 
 .testimonial-card-footer {
