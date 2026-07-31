@@ -37,7 +37,14 @@
                             <NavLink href="/admin/dashboard" class="btn btn-spa-secondary btn-sm">Provider Portal</NavLink>
                         }
                         <div class="spa-account-menu">
-                            <NavLink href="profile" class="spa-account-name">@context.User.Identity?.Name</NavLink>
+                            @if (context.User.IsInRole("Admin") || context.User.IsInRole("Provider"))
+                            {
+                                <span class="spa-account-name">@context.User.Identity?.Name</span>
+                            }
+                            else
+                            {
+                                <NavLink href="profile" class="spa-account-name">@context.User.Identity?.Name</NavLink>
+                            }
                             <form method="post" action="/account/logout">
                                 <button type="submit" class="btn btn-spa-secondary btn-sm">Sign out</button>
                             </form>
