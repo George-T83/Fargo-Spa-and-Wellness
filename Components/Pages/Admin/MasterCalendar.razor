@@ -7,6 +7,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IJSRuntime JsRuntime
+@inject Family_and_Spa_Wellness.Services.IEmailSender EmailSender
 
 <PageTitle>Master Calendar - Fargo Spa and Wellness</PageTitle>
 
@@ -339,6 +340,7 @@ else
         var providerId = editingProviderId == 0 ? (int?)null : editingProviderId;
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
+        var previousProviderId = (int?)null;
         if (editingAppointment.Id == 0)
         {
             db.Appointments.Add(new Appointment
@@ -356,6 +358,7 @@ else
             var dbAppt = await db.Appointments.FindAsync(editingAppointment.Id);
             if (dbAppt is not null)
             {
+                previousProviderId = dbAppt.ProviderId;
                 dbAppt.ClientId = editingAppointment.ClientId;
                 dbAppt.ServiceId = editingAppointment.ServiceId;
                 dbAppt.ProviderId = providerId;
@@ -366,8 +369,35 @@ else
         }
 
         await db.SaveChangesAsync();
+
+        // Notify the provider by email whenever this save results in them
+        // being newly assigned to the booking - covers both a brand-new
+        // booking and an edit that (re)assigns a different provider.
+        if (providerId is not null && providerId != previousProviderId)
+        {
+            await NotifyProviderAsync(providerId.Value, editingAppointment.ClientId, editingAppointment.ServiceId, editingAppointment.StartTime, editingAppointment.EndTime);
+        }
+
         editingAppointment = null;
         await LoadWeekAsync();
+    }
+
+    private async Task NotifyProviderAsync(int providerId, int clientId, int serviceId, DateTime start, DateTime end)
+    {
+        var provider = providers.FirstOrDefault(p => p.Id == providerId);
+        var client = clients.FirstOrDefault(c => c.Id == clientId);
+        var service = services.FirstOrDefault(s => s.Id == serviceId);
+        if (provider is null)
+        {
+            return;
+        }
+
+        await EmailSender.SendAsync(
+            provider.Email,
+            "New appointment assigned to you - Fargo Spa and Wellness",
+            $"<p>Hi {provider.FirstName},</p>" +
+            $"<p>You've been assigned a new appointment: <strong>{service?.Name ?? "a treatment"}</strong> " +
+            $"with {client?.FullName ?? "a client"} on {start:dddd, MMMM d} from {start:h:mm tt} to {end:h:mm tt}.</p>");
     }
 
     private async Task ConfirmAndCancelBookingAsync()
