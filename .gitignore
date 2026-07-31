@@ -10,6 +10,7 @@ obj/
 
 ## Local secrets
 .env
+/env
 
 ## IDE
 .vs/
@@ -19,3 +20,6 @@ obj/
 ## OS
 .DS_Store
 Thumbs.db
+
+## Secrets
+.env
