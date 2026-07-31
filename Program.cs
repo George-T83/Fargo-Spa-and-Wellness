@@ -1,7 +1,9 @@
 using Family_and_Spa_Wellness.Components;
 using Family_and_Spa_Wellness.Data;
+using Family_and_Spa_Wellness.Models;
 using Family_and_Spa_Wellness.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 LoadDotEnv(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
@@ -47,6 +49,27 @@ using (var scope = app.Services.CreateScope())
     var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     await using var db = await dbFactory.CreateDbContextAsync();
     await db.Database.MigrateAsync();
+
+    // Dev bootstrap: create exactly one Admin account from .env if none exists yet.
+    if (!await db.Users.AnyAsync(u => u.Role == "Admin"))
+    {
+        var adminEmail = builder.Configuration["SEED_ADMIN_EMAIL"];
+        var adminPassword = builder.Configuration["SEED_ADMIN_PASSWORD"];
+        if (!string.IsNullOrEmpty(adminEmail) && !string.IsNullOrEmpty(adminPassword))
+        {
+            var admin = new User
+            {
+                FirstName = "Admin",
+                LastName = "User",
+                Email = adminEmail,
+                Phone = "000-000-0000",
+                Role = "Admin",
+            };
+            admin.PasswordHash = new PasswordHasher<User>().HashPassword(admin, adminPassword);
+            db.Users.Add(admin);
+            await db.SaveChangesAsync();
+        }
+    }
 }
 
 // Configure the HTTP request pipeline.
