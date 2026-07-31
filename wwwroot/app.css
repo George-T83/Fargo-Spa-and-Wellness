@@ -1980,7 +1980,7 @@ h1:focus {
     flex-direction: column;
 }
 
-::deep .spa-footer-link {
+.spa-footer-link {
     display: block;
     font-size: 0.85rem;
     color: var(--spa-sand-200);
@@ -1988,8 +1988,9 @@ h1:focus {
     margin-bottom: 0.6rem;
 }
 
-::deep .spa-footer-link:hover {
+.spa-footer-link:hover {
     color: #fff;
+    text-decoration: underline;
 }
 
 .spa-footer-bottom {
@@ -2089,4 +2090,15 @@ h1:focus {
     font-weight: 700;
     color: var(--spa-ink-800);
     margin-bottom: 0.35rem;
+}
+
+/* Profile page */
+.profile-container {
+    max-width: 44rem;
+}
+
+.profile-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0 1.25rem;
 }
