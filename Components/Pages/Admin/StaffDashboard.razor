@@ -16,6 +16,24 @@
     <p>Your appointments and daily schedule.</p>
 </div>
 
+@if (!isAvailableToday.HasValue)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="admin-quick-card mb-4">
+        <h3>Today's Availability</h3>
+        <p>
+            Status:
+            <strong>@(isAvailableToday.Value ? "Available" : "Unavailable")</strong>
+        </p>
+        <button type="button" class="btn btn-spa-primary" @onclick="ToggleAvailabilityAsync">
+            @(isAvailableToday.Value ? "Mark unavailable" : "Mark available")
+        </button>
+    </div>
+}
+
 @if (appointments is null)
 {
     <p>Loading...</p>
@@ -73,10 +91,12 @@ else
     [CascadingParameter]
     private Task<AuthenticationState>? AuthStateTask { get; set; }
 
+    private int providerId;
     private List<Appointment>? appointments;
     private int todayCount;
     private int upcomingCount;
     private int completedCount;
+    private bool? isAvailableToday;
 
     protected override async Task OnInitializedAsync()
     {
@@ -87,7 +107,7 @@ else
 
         var authState = await AuthStateTask;
         var idClaim = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-        if (!int.TryParse(idClaim, out var providerId))
+        if (!int.TryParse(idClaim, out providerId))
         {
             return;
         }
@@ -106,6 +126,42 @@ else
         todayCount = appointments.Count(a => a.StartTime.Date == DateTime.Today);
         upcomingCount = appointments.Count(a => a.StartTime > DateTime.Now);
         completedCount = appointments.Count(a => a.EndTime < DateTime.Now);
+
+        // No row for today means available by default - see ProviderAvailability.cs.
+        var todayRow = await db.ProviderAvailability
+            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == DateTime.Today);
+        isAvailableToday = todayRow?.IsAvailable ?? true;
+    }
+
+    private async Task ToggleAvailabilityAsync()
+    {
+        if (isAvailableToday is null)
+        {
+            return;
+        }
+
+        var newValue = !isAvailableToday.Value;
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var todayRow = await db.ProviderAvailability
+            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == DateTime.Today);
+
+        if (todayRow is null)
+        {
+            db.ProviderAvailability.Add(new ProviderAvailability
+            {
+                ProviderId = providerId,
+                Date = DateTime.Today,
+                IsAvailable = newValue,
+            });
+        }
+        else
+        {
+            todayRow.IsAvailable = newValue;
+        }
+
+        await db.SaveChangesAsync();
+        isAvailableToday = newValue;
     }
 }
 <div class="admin-coming-soon">
