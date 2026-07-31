@@ -1,0 +1,74 @@
+@inherits LayoutComponentBase
+
+<div class="provider-shell">
+    <aside class="provider-sidebar">
+        <div class="provider-brand">
+            <span class="provider-brand-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5a3 3 0 1 1 3 3m-3-3a3 3 0 1 0-3 3m3-3v1M9 8a3 3 0 1 0 3 3M9 8h1m5 0a3 3 0 1 1-3 3m3-3h-1m-2 3v-1" />
+                    <path d="M12 8v13" />
+                    <path d="M12 21c0-2.5-2-2.5-2-5" />
+                    <path d="M12 21c0-2.5 2-2.5 2-5" />
+                </svg>
+            </span>
+            <span class="provider-brand-text">
+                <span class="provider-brand-name">Fargo Spa</span>
+                <span class="provider-brand-tagline">Provider Portal</span>
+            </span>
+        </div>
+
+        <nav class="provider-nav">
+            <p class="provider-nav-heading">Staff</p>
+            <NavLink class="provider-nav-link" href="/admin/dashboard">
+                <span>My Dashboard</span>
+                <span class="provider-nav-badge">Staff</span>
+            </NavLink>
+            <NavLink class="provider-nav-link" href="/admin/my-calendar">
+                <span>My Calendar</span>
+                <span class="provider-nav-badge">Staff</span>
+            </NavLink>
+            <NavLink class="provider-nav-link" href="/admin/notes">
+                <span>Client Service Notes</span>
+                <span class="provider-nav-badge">Staff</span>
+            </NavLink>
+        </nav>
+
+        <NavLink class="provider-home-link" href="/">
+            &larr; Back to site
+        </NavLink>
+
+        <div class="provider-user">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="provider-user-avatar">@GetInitials(context.User.Identity?.Name)</span>
+                    <span class="provider-user-info">
+                        <span class="provider-user-name">@context.User.Identity?.Name</span>
+                        <span class="provider-user-role">Signed in</span>
+                    </span>
+                    <form method="post" action="/account/logout">
+                        <button type="submit" class="provider-user-signout" title="Sign out">&#8677;</button>
+                    </form>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+    </aside>
+
+    <div class="provider-main">
+        <main class="provider-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+@code {
+    private static string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "?";
+        }
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(parts.Take(2).Select(p => char.ToUpperInvariant(p[0])));
+    }
+}
