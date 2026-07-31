@@ -7,6 +7,7 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>My Dashboard - Fargo Spa and Wellness</PageTitle>
 
@@ -163,3 +164,6 @@ else
         isAvailableToday = newValue;
     }
 }
+<div class="admin-coming-soon">
+    <p>Coming soon &mdash; tracked in <strong>FSW-19</strong>.</p>
+</div>
