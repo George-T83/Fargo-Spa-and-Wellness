@@ -10,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Testimonial> Testimonials => Set<Testimonial>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<ServiceNote> ServiceNotes => Set<ServiceNote>();
+    public DbSet<ProviderAvailability> ProviderAvailability => Set<ProviderAvailability>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,6 +46,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(n => n.Author)
             .WithMany()
             .HasForeignKey(n => n.AuthorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProviderAvailability>()
+            .HasIndex(pa => new { pa.ProviderId, pa.Date })
+            .IsUnique();
+
+        modelBuilder.Entity<ProviderAvailability>()
+            .HasOne(pa => pa.Provider)
+            .WithMany()
+            .HasForeignKey(pa => pa.ProviderId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Service>().HasData(
