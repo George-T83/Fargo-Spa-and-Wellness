@@ -6,6 +6,7 @@
 @using Family_and_Spa_Wellness.Models
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IJSRuntime JsRuntime
 
 <PageTitle>Master Calendar - Fargo Spa and Wellness</PageTitle>
 
@@ -107,12 +108,14 @@ else
                 </div>
             </div>
 
-            <div class="admin-service-actions">
-                <button type="button" class="btn btn-spa-primary" @onclick="SaveAsync">Save</button>
-                <button type="button" class="btn btn-spa-secondary" @onclick="CancelEdit">Cancel</button>
+            <div class="admin-service-actions admin-service-actions-split">
+                <div class="admin-service-actions-left">
+                    <button type="button" class="btn btn-spa-primary" @onclick="SaveAsync">Save</button>
+                    <button type="button" class="btn btn-spa-secondary" @onclick="CancelEdit">Cancel</button>
+                </div>
                 @if (editingAppointment.Id != 0)
                 {
-                    <button type="button" class="btn-reject" @onclick="CancelBookingAsync">Cancel Booking</button>
+                    <button type="button" class="btn-reject" @onclick="ConfirmAndCancelBookingAsync">Cancel Booking</button>
                 }
             </div>
         </div>
@@ -365,6 +368,15 @@ else
         await db.SaveChangesAsync();
         editingAppointment = null;
         await LoadWeekAsync();
+    }
+
+    private async Task ConfirmAndCancelBookingAsync()
+    {
+        var confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Cancel this booking? This can't be undone.");
+        if (confirmed)
+        {
+            await CancelBookingAsync();
+        }
     }
 
     private async Task CancelBookingAsync()

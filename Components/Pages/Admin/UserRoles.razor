@@ -5,8 +5,8 @@
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
 @using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
-@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>User Roles - Fargo Spa and Wellness</PageTitle>
 
@@ -61,13 +61,22 @@ else
                             <div class="text-muted">@user.Phone</div>
                         </td>
                         <td>
-                            <select class="admin-role-select"
-                                    value="@user.Role"
-                                    @onchange="@(e => ChangeRole(user, e.Value?.ToString() ?? user.Role))">
-                                <option value="Client">Client</option>
-                                <option value="Provider">Provider</option>
-                                <option value="Admin">Admin</option>
-                            </select>
+                            @if (user.Id == currentUserId)
+                            {
+                                <select class="admin-role-select" value="@user.Role" disabled title="You can't change your own role.">
+                                    <option value="@user.Role">@user.Role</option>
+                                </select>
+                            }
+                            else
+                            {
+                                <select class="admin-role-select"
+                                        value="@user.Role"
+                                        @onchange="@(e => ChangeRole(user, e.Value?.ToString() ?? user.Role))">
+                                    <option value="Client">Client</option>
+                                    <option value="Provider">Provider</option>
+                                    <option value="Admin">Admin</option>
+                                </select>
+                            }
                         </td>
                         <td>@user.CreatedAt.ToString("MMM d, yyyy")</td>
                     </tr>
@@ -78,11 +87,22 @@ else
 }
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
     private List<User>? users;
     private string? statusMessage;
+    private int currentUserId;
 
     protected override async Task OnInitializedAsync()
     {
+        if (AuthStateTask is not null)
+        {
+            var authState = await AuthStateTask;
+            var idClaim = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            int.TryParse(idClaim, out currentUserId);
+        }
+
         await LoadUsers();
     }
 
@@ -94,6 +114,17 @@ else
 
     private async Task ChangeRole(User user, string newRole)
     {
+        // Never let an admin change their own role here, even if someone
+        // bypasses the disabled UI control - self-demoting (or a bug doing
+        // it for them) could lock every admin out of this page with no way
+        // back in, since the startup admin-seed step only runs when zero
+        // admins exist.
+        if (user.Id == currentUserId)
+        {
+            statusMessage = "You can't change your own role.";
+            return;
+        }
+
         await using var db = await DbContextFactory.CreateDbContextAsync();
         var dbUser = await db.Users.FindAsync(user.Id);
         if (dbUser is not null)
@@ -105,6 +136,3 @@ else
         }
     }
 }
-<div class="admin-coming-soon">
-    <p>Coming soon &mdash; tracked in <strong>FSW-23</strong>.</p>
-</div>

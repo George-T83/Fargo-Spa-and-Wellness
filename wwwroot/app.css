@@ -891,6 +891,11 @@ h1:focus {
     margin-top: 0.2rem;
 }
 
+.booking-provider-field {
+    max-width: 320px;
+    margin-top: 1.5rem;
+}
+
 .booking-actions {
     display: flex;
     align-items: center;
@@ -1033,6 +1038,63 @@ h1:focus {
     font-size: 0.82rem;
 }
 
+.admin-availability-hint {
+    color: var(--spa-ink-400);
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+}
+
+.shift-day-cell {
+    white-space: nowrap;
+    vertical-align: top;
+    padding-top: 1rem;
+}
+
+.shift-add-cell {
+    vertical-align: top;
+    padding-top: 0.6rem;
+    white-space: nowrap;
+}
+
+.shift-not-scheduled {
+    color: var(--spa-ink-400);
+    font-size: 0.85rem;
+}
+
+.shift-block-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.shift-block-row:last-child {
+    margin-bottom: 0;
+}
+
+.shift-block-sep {
+    color: var(--spa-ink-400);
+    font-size: 0.8rem;
+}
+
+.shift-remove-btn {
+    background: none;
+    border: 1px solid var(--spa-sand-300);
+    border-radius: 0.35rem;
+    color: var(--spa-ink-400);
+    width: 1.6rem;
+    height: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.shift-remove-btn:hover {
+    background-color: var(--spa-sand-50);
+    color: #c65a58;
+    border-color: #c65a58;
+}
+
 .admin-role-select {
     padding: 0.35rem 0.6rem;
     border: 1px solid var(--spa-sand-300);
@@ -1086,6 +1148,8 @@ h1:focus {
     font-size: 0.62rem;
     color: var(--spa-ink-400);
     white-space: nowrap;
+}
+
 .admin-filter-bar {
     display: flex;
     flex-wrap: wrap;
@@ -1158,6 +1222,16 @@ h1:focus {
     margin-top: 0.25rem;
 }
 
+.admin-service-actions-split {
+    justify-content: space-between;
+    align-items: center;
+}
+
+.admin-service-actions-left {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .admin-status-badge {
     font-size: 0.65rem;
     font-weight: 700;
@@ -1202,8 +1276,10 @@ h1:focus {
 }
 
 .admin-form-field input,
-.admin-form-field textarea {
+.admin-form-field textarea,
+.admin-form-field select {
     width: 100%;
+    box-sizing: border-box;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--spa-sand-300);
     border-radius: 0.5rem;
@@ -1507,12 +1583,19 @@ h1:focus {
     color: #fff;
 }
 
+.testimonial-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1rem;
+}
+
 .testimonial-card {
     background-color: #fff;
     border: 1px solid var(--spa-sand-200);
     border-radius: 0.85rem;
     padding: 1.5rem;
-    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
 }
 
 .testimonial-card-header {
@@ -1552,6 +1635,8 @@ h1:focus {
 
 .testimonial-date {
     font-size: 0.82rem;
+}
+
 .admin-range-toggle {
     display: flex;
     gap: 0.5rem;
@@ -1599,9 +1684,9 @@ h1:focus {
 }
 
 .testimonial-stars {
-    margin-bottom: 0.6rem;
     font-size: 1.05rem;
     letter-spacing: 0.1rem;
+    flex-shrink: 0;
 }
 
 .testimonial-star.filled {
@@ -1613,15 +1698,19 @@ h1:focus {
 }
 
 .testimonial-quote {
-    font-style: italic;
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 0.95rem;
+    font-style: normal;
+    font-weight: 400;
     color: var(--spa-ink-600);
     margin-bottom: 1rem;
+    flex: 1;
 }
 
 .testimonial-quote-icon {
     color: var(--spa-sand-300);
-    font-weight: 700;
-    margin-right: 0.15rem;
+    font-weight: 400;
+    margin: 0 0.15rem;
 }
 
 .testimonial-card-footer {

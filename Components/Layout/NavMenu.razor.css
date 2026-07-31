@@ -92,11 +92,28 @@
     gap: 0.5rem;
 }
 
-.spa-user-greeting {
+.spa-account-menu {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding-left: 0.6rem;
+    margin-left: 0.15rem;
+    border-left: 1px solid #e7dccd;
+}
+
+::deep .spa-account-name {
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--spa-ink-700, #3d3a34);
-    margin-right: 0.25rem;
+    text-decoration: none;
+    white-space: nowrap;
+    max-width: 8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+::deep .spa-account-name:hover {
+    color: #3d5734;
 }
 
 .navbar-toggler {

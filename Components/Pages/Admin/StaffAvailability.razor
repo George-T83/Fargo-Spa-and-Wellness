@@ -40,7 +40,7 @@
     }
 }
 
-@if (shifts is not null)
+@if (shiftsByDay is not null)
 {
     @if (validationErrors.Count > 0)
     {
@@ -56,35 +56,46 @@
         <div class="admin-alert">@statusMessage</div>
     }
 
+    <p class="admin-availability-hint">Add more than one shift on a day to block out a lunch break or split shift.</p>
+
     <div class="admin-table-wrap">
         <table class="admin-table">
             <thead>
                 <tr>
                     <th>Day</th>
-                    <th>Working?</th>
-                    <th>Start</th>
-                    <th>End</th>
+                    <th>Shifts</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var row in shifts)
+                @foreach (var day in DaysOfWeek)
                 {
-                    <tr @key="row.DayOfWeek">
-                        <td>@row.DayOfWeek</td>
+                    <tr @key="day">
+                        <td class="shift-day-cell">@day</td>
                         <td>
-                            <input type="checkbox" @bind="row.IsWorking" />
+                            @if (shiftsByDay[day].Count == 0)
+                            {
+                                <span class="shift-not-scheduled">Not scheduled</span>
+                            }
+                            else
+                            {
+                                @foreach (var block in shiftsByDay[day])
+                                {
+                                    <div class="shift-block-row" @key="block">
+                                        <input type="time" class="admin-role-select"
+                                               value="@block.StartTime.ToString(@"hh\:mm")"
+                                               @onchange="e => block.StartTime = TimeSpan.TryParse(e.Value?.ToString(), out var t) ? t : block.StartTime" />
+                                        <span class="shift-block-sep">to</span>
+                                        <input type="time" class="admin-role-select"
+                                               value="@block.EndTime.ToString(@"hh\:mm")"
+                                               @onchange="e => block.EndTime = TimeSpan.TryParse(e.Value?.ToString(), out var t) ? t : block.EndTime" />
+                                        <button type="button" class="shift-remove-btn" title="Remove shift" @onclick="() => RemoveShift(day, block)">&times;</button>
+                                    </div>
+                                }
+                            }
                         </td>
-                        <td>
-                            <input type="time" class="admin-role-select"
-                                   value="@row.StartTime.ToString(@"hh\:mm")"
-                                   disabled="@(!row.IsWorking)"
-                                   @onchange="e => row.StartTime = TimeSpan.TryParse(e.Value?.ToString(), out var t) ? t : row.StartTime" />
-                        </td>
-                        <td>
-                            <input type="time" class="admin-role-select"
-                                   value="@row.EndTime.ToString(@"hh\:mm")"
-                                   disabled="@(!row.IsWorking)"
-                                   @onchange="e => row.EndTime = TimeSpan.TryParse(e.Value?.ToString(), out var t) ? t : row.EndTime" />
+                        <td class="shift-add-cell">
+                            <button type="button" class="btn btn-spa-secondary btn-sm" @onclick="() => AddShift(day)">+ Add shift</button>
                         </td>
                     </tr>
                 }
@@ -103,11 +114,17 @@ else if (isAdmin && providers is not null && providers.Count > 0)
     [CascadingParameter]
     private Task<AuthenticationState>? AuthStateTask { get; set; }
 
+    private static readonly DayOfWeek[] DaysOfWeek =
+    {
+        DayOfWeek.Sunday, DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+        DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday,
+    };
+
     private bool isAdmin;
     private int viewerId;
     private int selectedProviderId;
     private List<User>? providers;
-    private List<ProviderShift>? shifts;
+    private Dictionary<DayOfWeek, List<ShiftBlock>>? shiftsByDay;
     private string? statusMessage;
     private List<string> validationErrors = new();
 
@@ -157,53 +174,107 @@ else if (isAdmin && providers is not null && providers.Count > 0)
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
         var existing = await db.ProviderShifts
-            .Where(s => s.ProviderId == selectedProviderId)
+            .Where(s => s.ProviderId == selectedProviderId && s.IsWorking)
             .ToListAsync();
 
-        var result = new List<ProviderShift>();
-        foreach (var day in Enum.GetValues<DayOfWeek>())
-        {
-            var match = existing.FirstOrDefault(s => s.DayOfWeek == day);
-            if (match is not null)
-            {
-                result.Add(match);
-            }
-            else
-            {
-                var isWeekday = day is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
-                result.Add(new ProviderShift
-                {
-                    ProviderId = selectedProviderId,
-                    DayOfWeek = day,
-                    IsWorking = isWeekday,
-                    StartTime = new TimeSpan(9, 0, 0),
-                    EndTime = new TimeSpan(17, 0, 0),
-                });
-            }
-        }
-        shifts = result;
+        shiftsByDay = DaysOfWeek.ToDictionary(
+            day => day,
+            day => existing
+                .Where(s => s.DayOfWeek == day)
+                .OrderBy(s => s.StartTime)
+                .Select(s => new ShiftBlock { StartTime = s.StartTime, EndTime = s.EndTime })
+                .ToList());
     }
 
-    private async Task SaveAsync()
+    private void AddShift(DayOfWeek day)
     {
-        if (shifts is null)
+        if (shiftsByDay is null)
         {
             return;
         }
 
-        validationErrors = shifts
-            .Where(s => s.IsWorking && s.EndTime <= s.StartTime)
-            .Select(s => $"{s.DayOfWeek}: end time must be after start time.")
-            .ToList();
+        var blocks = shiftsByDay[day];
+        var defaultStart = new TimeSpan(9, 0, 0);
+        var defaultEnd = new TimeSpan(17, 0, 0);
+
+        if (blocks.Count == 0)
+        {
+            blocks.Add(new ShiftBlock { StartTime = defaultStart, EndTime = defaultEnd });
+            return;
+        }
+
+        // Default the new block to start where the last one ends (e.g. after
+        // a 9-12 morning block, the next block defaults to 12-5) so adding a
+        // split shift doesn't require re-typing times that already make sense.
+        var lastEnd = blocks.Max(b => b.EndTime);
+        var suggestedEnd = lastEnd.Add(TimeSpan.FromHours(1));
+        if (suggestedEnd > new TimeSpan(23, 59, 0))
+        {
+            suggestedEnd = new TimeSpan(23, 59, 0);
+        }
+
+        blocks.Add(new ShiftBlock { StartTime = lastEnd, EndTime = suggestedEnd });
+    }
+
+    private void RemoveShift(DayOfWeek day, ShiftBlock block)
+    {
+        shiftsByDay?[day].Remove(block);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (shiftsByDay is null)
+        {
+            return;
+        }
+
+        validationErrors = new List<string>();
+        foreach (var day in DaysOfWeek)
+        {
+            var blocks = shiftsByDay[day].OrderBy(b => b.StartTime).ToList();
+            foreach (var block in blocks)
+            {
+                if (block.EndTime <= block.StartTime)
+                {
+                    validationErrors.Add($"{day}: end time must be after start time.");
+                }
+            }
+
+            for (var i = 1; i < blocks.Count; i++)
+            {
+                if (blocks[i].StartTime < blocks[i - 1].EndTime)
+                {
+                    validationErrors.Add($"{day}: shifts cannot overlap.");
+                }
+            }
+        }
+
         if (validationErrors.Count > 0)
         {
             return;
         }
 
+        var rows = shiftsByDay
+            .SelectMany(kv => kv.Value.Select(b => new ProviderShift
+            {
+                ProviderId = selectedProviderId,
+                DayOfWeek = kv.Key,
+                IsWorking = true,
+                StartTime = b.StartTime,
+                EndTime = b.EndTime,
+            }))
+            .ToList();
+
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        await ProviderShiftService.SaveWeeklyShifts(db, selectedProviderId, shifts);
+        await ProviderShiftService.SaveWeeklyShifts(db, selectedProviderId, rows);
 
         statusMessage = isAdmin ? "That provider's availability has been saved." : "Your weekly availability has been saved.";
         await LoadShiftsAsync();
+    }
+
+    private class ShiftBlock
+    {
+        public TimeSpan StartTime { get; set; }
+        public TimeSpan EndTime { get; set; }
     }
 }

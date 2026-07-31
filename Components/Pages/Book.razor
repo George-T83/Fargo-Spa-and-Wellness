@@ -147,6 +147,20 @@
                             </div>
                         }
 
+                        @if (providers.Count > 0)
+                        {
+                            <div class="admin-form-field booking-provider-field">
+                                <label>Preferred provider (optional)</label>
+                                <select class="admin-role-select" @bind="selectedProviderId" @bind:after="LoadSlotsAsync">
+                                    <option value="0">No preference</option>
+                                    @foreach (var provider in providers)
+                                    {
+                                        <option value="@provider.Id">@provider.FullName</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+
                         <div class="booking-actions">
                             <button type="button" class="btn btn-spa-secondary" @onclick="GoToStep1">&larr; Back</button>
                             <button type="button" class="btn btn-spa-primary" disabled="@(selectedStart is null)" @onclick="GoToStep3">
@@ -180,6 +194,13 @@
                                 <span class="booking-review-label">Time</span>
                                 <span class="booking-review-value">@selectedStart.Value.ToString("h:mm tt")</span>
                             </div>
+                            @if (selectedProviderId != 0)
+                            {
+                                <div class="booking-review-row">
+                                    <span class="booking-review-label">Provider</span>
+                                    <span class="booking-review-value">@(providers.FirstOrDefault(p => p.Id == selectedProviderId)?.FullName ?? "No preference")</span>
+                                </div>
+                            }
                             <div class="booking-review-row total">
                                 <span>Total</span>
                                 <span>@selectedService.Price.ToString("C")</span>
@@ -228,8 +249,10 @@
     private static readonly TimeSpan SlotInterval = TimeSpan.FromMinutes(30);
 
     private List<Service>? services;
+    private List<User> providers = new();
     private int step = 1;
     private int selectedServiceId;
+    private int selectedProviderId;
     private Service? selectedService;
     private DateTime weekStart = StartOfWeek(DateTime.Today);
     private DateTime selectedDate = DateTime.Today;
@@ -253,6 +276,7 @@
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
         services = await db.Services.OrderBy(s => s.Category).ThenBy(s => s.Name).ToListAsync();
+        providers = await db.Users.Where(u => u.Role == "Provider").OrderBy(u => u.LastName).ToListAsync();
 
         if (ServiceId.HasValue && services.Any(s => s.Id == ServiceId.Value))
         {
@@ -438,8 +462,18 @@
         var dayStart = selectedDate.Date;
         var dayEnd = dayStart.AddDays(1);
 
-        var existing = await db.Appointments
-            .Where(a => a.StartTime < dayEnd && a.EndTime > dayStart)
+        // When a specific therapist is requested, only that therapist's
+        // bookings block a slot - other therapists can still take clients at
+        // the same time. With no preference we conservatively treat any
+        // existing booking as blocking, since we don't yet check therapist
+        // working hours here.
+        var existingQuery = db.Appointments.Where(a => a.StartTime < dayEnd && a.EndTime > dayStart);
+        if (selectedProviderId != 0)
+        {
+            existingQuery = existingQuery.Where(a => a.ProviderId == selectedProviderId);
+        }
+
+        var existing = await existingQuery
             .Select(a => new { a.StartTime, a.EndTime })
             .ToListAsync();
 
@@ -510,7 +544,13 @@
         var start = selectedStart.Value;
         var end = start.Add(TimeSpan.FromMinutes(service.DurationMinutes));
 
-        var stillAvailable = !await db.Appointments.AnyAsync(a => a.StartTime < end && start < a.EndTime);
+        var conflictQuery = db.Appointments.Where(a => a.StartTime < end && start < a.EndTime);
+        if (selectedProviderId != 0)
+        {
+            conflictQuery = conflictQuery.Where(a => a.ProviderId == selectedProviderId);
+        }
+
+        var stillAvailable = !await conflictQuery.AnyAsync();
         if (!stillAvailable)
         {
             errorMessage = "That time slot was just booked by someone else. Please choose another.";
@@ -523,6 +563,7 @@
         {
             ClientId = client.Id,
             ServiceId = service.Id,
+            ProviderId = selectedProviderId == 0 ? null : selectedProviderId,
             StartTime = start,
             EndTime = end,
         });
