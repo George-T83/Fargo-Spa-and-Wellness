@@ -10,6 +10,7 @@ obj/
 
 ## Local secrets
 .env
+/env
 
 ## IDE
 .vs/
