@@ -1,6 +1,11 @@
 @page "/admin/reporting"
 @layout AdminLayout
+@rendermode InteractiveServer
 @attribute [Authorize(Roles = "Admin")]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <PageTitle>Reporting - Fargo Spa and Wellness</PageTitle>
 
@@ -9,6 +14,197 @@
     <p>Booking volume and revenue trends.</p>
 </div>
 
-<div class="admin-coming-soon">
-    <p>Coming soon &mdash; tracked in <strong>FSW-24</strong>.</p>
-</div>
+@if (report is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="admin-range-toggle">
+        <button type="button" class="btn @(selectedRangeDays == 7 ? "btn-spa-primary" : "btn-spa-secondary") btn-sm" @onclick="() => SetRangeAsync(7)">Last 7 days</button>
+        <button type="button" class="btn @(selectedRangeDays == 30 ? "btn-spa-primary" : "btn-spa-secondary") btn-sm" @onclick="() => SetRangeAsync(30)">Last 30 days</button>
+        <button type="button" class="btn @(selectedRangeDays == 90 ? "btn-spa-primary" : "btn-spa-secondary") btn-sm" @onclick="() => SetRangeAsync(90)">Last 90 days</button>
+    </div>
+
+    <div class="admin-stat-grid">
+        <div class="admin-stat-card">
+            <div class="admin-stat-value">@report.TotalBookings</div>
+            <div class="admin-stat-label">Total Bookings</div>
+        </div>
+        <div class="admin-stat-card">
+            <div class="admin-stat-value">@report.CompletedBookings <span style="font-size:1rem;">(@report.CompletedPercentage.ToString("0")%)</span></div>
+            <div class="admin-stat-label">Completed</div>
+        </div>
+        <div class="admin-stat-card">
+            <div class="admin-stat-value">@report.TotalRevenue.ToString("C")</div>
+            <div class="admin-stat-label">Revenue</div>
+        </div>
+        <div class="admin-stat-card">
+            <div class="admin-stat-value">@report.UniqueClients</div>
+            <div class="admin-stat-label">Unique Clients</div>
+        </div>
+    </div>
+
+    <h2 class="admin-section-title">Bookings over time</h2>
+    @if (report.Trend.Count == 0)
+    {
+        <div class="admin-coming-soon">
+            <p>No bookings in this period.</p>
+        </div>
+    }
+    else
+    {
+        <div class="admin-table-wrap mb-4">
+            <div class="admin-trend-chart">
+                @foreach (var point in report.Trend)
+                {
+                    <div class="admin-trend-bar" title="@($"{point.Label}: {point.Count} booking(s)")">
+                        <div class="admin-trend-bar-fill" style="height:@(point.HeightPercent.ToString("0.##"))%"></div>
+                        @if (point.ShowLabel)
+                        {
+                            <span class="admin-trend-bar-label">@point.Label</span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <h2 class="admin-section-title">Top services by revenue</h2>
+    @if (report.TopServices.Count == 0)
+    {
+        <div class="admin-coming-soon">
+            <p>No bookings in this period.</p>
+        </div>
+    }
+    else
+    {
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Service</th>
+                        <th>Bookings</th>
+                        <th>Revenue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var svc in report.TopServices)
+                    {
+                        <tr>
+                            <td>@svc.ServiceName</td>
+                            <td>@svc.BookingCount</td>
+                            <td>@svc.Revenue.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private int selectedRangeDays = 7;
+    private ReportData? report;
+
+    private record TrendPoint(string Label, int Count, double HeightPercent, bool ShowLabel);
+    private record ServiceRevenue(string ServiceName, int BookingCount, decimal Revenue);
+    private record ReportData(
+        int TotalBookings,
+        int CompletedBookings,
+        double CompletedPercentage,
+        decimal TotalRevenue,
+        int UniqueClients,
+        List<TrendPoint> Trend,
+        List<ServiceRevenue> TopServices);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReportAsync();
+    }
+
+    private async Task SetRangeAsync(int days)
+    {
+        selectedRangeDays = days;
+        await LoadReportAsync();
+    }
+
+    private async Task LoadReportAsync()
+    {
+        // Clean calendar-day range: "last N days" includes all of today, not
+        // just up to the current time of day.
+        var rangeStart = DateTime.Today.AddDays(-(selectedRangeDays - 1));
+        var rangeEnd = DateTime.Today.AddDays(1);
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var appointments = await db.Appointments
+            .Include(a => a.Service)
+            .Where(a => a.StartTime >= rangeStart && a.StartTime < rangeEnd)
+            .ToListAsync();
+
+        var totalBookings = appointments.Count;
+        // "Completed" matches the FSW-19 definition: EndTime < now. There is
+        // no separate status field on Appointment.
+        var completedBookings = appointments.Count(a => a.EndTime < DateTime.Now);
+        var completedPercentage = totalBookings == 0 ? 0 : (double)completedBookings / totalBookings * 100;
+        // Revenue counts every booking in the period regardless of
+        // completion status - it answers "how much business was booked",
+        // not "how much has been delivered so far".
+        var totalRevenue = appointments.Sum(a => a.Service?.Price ?? 0m);
+        var uniqueClients = appointments.Select(a => a.ClientId).Distinct().Count();
+
+        var trend = BuildTrend(appointments, rangeStart, rangeEnd);
+
+        var topServices = appointments
+            .GroupBy(a => a.Service?.Name ?? "Unknown")
+            .Select(g => new ServiceRevenue(g.Key, g.Count(), g.Sum(a => a.Service?.Price ?? 0m)))
+            .OrderByDescending(s => s.Revenue)
+            .Take(5)
+            .ToList();
+
+        report = new ReportData(totalBookings, completedBookings, completedPercentage, totalRevenue, uniqueClients, trend, topServices);
+    }
+
+    private List<TrendPoint> BuildTrend(List<Appointment> appointments, DateTime rangeStart, DateTime rangeEnd)
+    {
+        // Daily buckets for 7/30 days; weekly buckets for 90 days, or the
+        // CSS bar chart gets too dense to read (no charting library in this
+        // project - George hasn't added one for the client-side calendar
+        // either, so this stays a plain data visualization, not a new JS
+        // dependency).
+        var bucketLengthDays = selectedRangeDays <= 30 ? 1 : 7;
+        var bucketCount = selectedRangeDays <= 30 ? selectedRangeDays : (selectedRangeDays + 6) / 7;
+
+        var buckets = Enumerable.Range(0, bucketCount)
+            .Select(i => rangeStart.AddDays(i * bucketLengthDays))
+            .ToList();
+
+        // Weekly bucketing for 90 days (13 * 7 = 91) can overshoot rangeEnd
+        // by a day in the final bucket - clamp so it never counts past the
+        // actual selected range.
+        var counts = buckets
+            .Select(bucketStart =>
+            {
+                var bucketEnd = bucketStart.AddDays(bucketLengthDays);
+                if (bucketEnd > rangeEnd)
+                {
+                    bucketEnd = rangeEnd;
+                }
+                return appointments.Count(a => a.StartTime.Date >= bucketStart && a.StartTime.Date < bucketEnd);
+            })
+            .ToList();
+        var maxCount = counts.Count == 0 ? 0 : counts.Max();
+
+        // Avoid a crowded x-axis: label every bucket when there aren't many,
+        // otherwise only every 5th.
+        var labelStep = buckets.Count <= 14 ? 1 : 5;
+
+        return buckets
+            .Select((bucketStart, i) => new TrendPoint(
+                bucketStart.ToString("M/d"),
+                counts[i],
+                maxCount == 0 ? 0 : (counts[i] == 0 ? 0 : Math.Max(counts[i] / (double)maxCount * 100, 4)),
+                i % labelStep == 0))
+            .ToList();
+    }
+}
