@@ -47,32 +47,40 @@ else
     }
     else
     {
-        @foreach (var t in FilteredTestimonials)
-        {
-            <div class="testimonial-card">
-                <div class="testimonial-card-header">
-                    <div class="testimonial-avatar">@GetInitials(t.Client)</div>
-                    <div class="testimonial-header-text">
-                        <span class="testimonial-name">@(t.Client?.FullName ?? "A Client")</span>
-                        <span class="testimonial-date">@t.CreatedAt.ToString("MMM d, yyyy")</span>
+        <div class="testimonial-grid">
+            @foreach (var t in FilteredTestimonials)
+            {
+                <div class="testimonial-card">
+                    <div class="testimonial-card-header">
+                        <div class="testimonial-avatar">@GetInitials(t.Client)</div>
+                        <div class="testimonial-header-text">
+                            <span class="testimonial-name">@(t.Client?.FullName ?? "A Client")</span>
+                            <span class="testimonial-date">@t.CreatedAt.ToString("MMM d, yyyy")</span>
+                        </div>
+                        <div class="testimonial-stars">
+                            @for (var i = 1; i <= 5; i++)
+                            {
+                                <span class="testimonial-star @(i <= t.Rating ? "filled" : "empty")">@(i <= t.Rating ? "★" : "☆")</span>
+                            }
+                        </div>
+                    </div>
+                    <p class="testimonial-quote"><span class="testimonial-quote-icon">&#10077;</span>@t.ReviewText<span class="testimonial-quote-icon">&#10078;</span></p>
+                    <div class="testimonial-card-footer">
+                        <span class="admin-status-badge @StatusCssClass(t.ApprovalStatus)">@t.ApprovalStatus</span>
+                        <div class="testimonial-actions">
+                            @if (t.ApprovalStatus != "Approved")
+                            {
+                                <button type="button" class="btn-approve" @onclick='() => UpdateStatusAsync(t, "Approved")'>✓ Approve</button>
+                            }
+                            @if (t.ApprovalStatus != "Rejected")
+                            {
+                                <button type="button" class="btn-reject" @onclick='() => UpdateStatusAsync(t, "Rejected")'>✕ Reject</button>
+                            }
+                        </div>
                     </div>
                 </div>
-                <div class="testimonial-stars">
-                    @for (var i = 1; i <= 5; i++)
-                    {
-                        <span class="testimonial-star @(i <= t.Rating ? "filled" : "empty")">@(i <= t.Rating ? "★" : "☆")</span>
-                    }
-                </div>
-                <p class="testimonial-quote"><span class="testimonial-quote-icon">&#10077;</span>"@t.ReviewText"</p>
-                <div class="testimonial-card-footer">
-                    <span class="admin-status-badge @StatusCssClass(t.ApprovalStatus)">@t.ApprovalStatus</span>
-                    <div class="testimonial-actions">
-                        <button type="button" class="btn-approve" @onclick='() => UpdateStatusAsync(t, "Approved")'>✓ Approve</button>
-                        <button type="button" class="btn-reject" @onclick='() => UpdateStatusAsync(t, "Rejected")'>✕ Reject</button>
-                    </div>
-                </div>
-            </div>
-        }
+            }
+        </div>
     }
 }
 

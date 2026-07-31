@@ -18,31 +18,40 @@
         </div>
 
         <nav class="admin-nav">
-            <p class="admin-nav-heading">Staff</p>
-            <NavLink class="admin-nav-link" href="/admin/dashboard">
-                <span>My Dashboard</span>
-                <span class="admin-nav-badge staff">Staff</span>
-            </NavLink>
-            <NavLink class="admin-nav-link" href="/admin/my-calendar">
-                <span>My Calendar</span>
-                <span class="admin-nav-badge staff">Staff</span>
-            </NavLink>
-            <NavLink class="admin-nav-link" href="/admin/notes">
-                <span>Client Notes</span>
-                <span class="admin-nav-badge staff">Staff</span>
-            </NavLink>
-            <NavLink class="admin-nav-link" href="/admin/availability">
-                <span>My Availability</span>
-                <span class="admin-nav-badge staff">Staff</span>
-            </NavLink>
+            <AuthorizeView>
+                <Authorized>
+                    @if (context.User.IsInRole("Provider"))
+                    {
+                        <p class="admin-nav-heading">Staff</p>
+                        <NavLink class="admin-nav-link" href="/admin/dashboard">
+                            <span>My Dashboard</span>
+                            <span class="admin-nav-badge staff">Staff</span>
+                        </NavLink>
+                        <NavLink class="admin-nav-link" href="/admin/my-calendar">
+                            <span>My Calendar</span>
+                            <span class="admin-nav-badge staff">Staff</span>
+                        </NavLink>
+                        <NavLink class="admin-nav-link" href="/admin/notes">
+                            <span>Client Notes</span>
+                            <span class="admin-nav-badge staff">Staff</span>
+                        </NavLink>
+                        <NavLink class="admin-nav-link" href="/admin/availability">
+                            <span>My Availability</span>
+                            <span class="admin-nav-badge staff">Staff</span>
+                        </NavLink>
+                    }
+                </Authorized>
+            </AuthorizeView>
 
             <p class="admin-nav-heading">Administration</p>
+            <NavLink class="admin-nav-link" href="/admin/notes">
+                <span>Client Notes</span>
+                <span class="admin-nav-badge admin">Admin</span>
+            </NavLink>
             <NavLink class="admin-nav-link" href="/admin/availability">
                 <span>Staff Availability</span>
                 <span class="admin-nav-badge admin">Admin</span>
             </NavLink>
-
-            <p class="admin-nav-heading">Administration</p>
             <NavLink class="admin-nav-link" href="/admin/calendar">
                 <span>Master Calendar</span>
                 <span class="admin-nav-badge admin">Admin</span>

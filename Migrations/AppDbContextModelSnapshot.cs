@@ -53,7 +53,6 @@ namespace Family_and_Spa_Wellness.Migrations
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -66,6 +65,28 @@ namespace Family_and_Spa_Wellness.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsAvailable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ProviderId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("ProviderAvailability");
+                });
+
+            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("DayOfWeek")
                         .HasColumnType("INTEGER");
 
@@ -78,19 +99,12 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Property<int>("ProviderId")
                         .HasColumnType("INTEGER");
 
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProviderId", "Date")
-                        .IsUnique();
-
-                    b.ToTable("ProviderAvailability");
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProviderId", "DayOfWeek")
-                        .IsUnique();
+                    b.HasIndex("ProviderId", "DayOfWeek");
 
                     b.ToTable("ProviderShifts");
                 });
@@ -402,6 +416,28 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Navigation("Service");
                 });
 
+            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
+                {
+                    b.HasOne("Family_and_Spa_Wellness.Models.User", "Provider")
+                        .WithMany()
+                        .HasForeignKey("ProviderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Provider");
+                });
+
+            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
+                {
+                    b.HasOne("Family_and_Spa_Wellness.Models.User", "Provider")
+                        .WithMany()
+                        .HasForeignKey("ProviderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Provider");
+                });
+
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.ServiceNote", b =>
                 {
                     b.HasOne("Family_and_Spa_Wellness.Models.User", "Author")
@@ -419,21 +455,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Client");
-                });
-
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
-                {
-                    b.HasOne("Family_and_Spa_Wellness.Models.User", "Provider")
-                        .WithMany()
-                        .HasForeignKey("ProviderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Provider");
-                });
-
-                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Testimonial", b =>

@@ -1,5 +1,4 @@
 @page "/admin/notes"
-@layout ProviderLayout
 @layout AdminLayout
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = "Provider,Admin")]
@@ -116,6 +115,7 @@ else
     private Task<AuthenticationState>? AuthStateTask { get; set; }
 
     private int authorId;
+    private bool isAdmin;
     private List<User> clients = new();
     private List<ServiceNote>? notes;
     private string searchText = string.Empty;
@@ -150,8 +150,24 @@ else
             return;
         }
 
+        isAdmin = authState.User.IsInRole("Admin");
+
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        clients = await db.Users.Where(u => u.Role == "Client").OrderBy(u => u.LastName).ToListAsync();
+
+        // Providers can only see and add notes for clients they've actually
+        // been booked with - not the entire client list. Admins see and can
+        // note for everyone.
+        var clientsQuery = db.Users.Where(u => u.Role == "Client");
+        if (!isAdmin)
+        {
+            var seenClientIds = await db.Appointments
+                .Where(a => a.ProviderId == authorId)
+                .Select(a => a.ClientId)
+                .Distinct()
+                .ToListAsync();
+            clientsQuery = clientsQuery.Where(u => seenClientIds.Contains(u.Id));
+        }
+        clients = await clientsQuery.OrderBy(u => u.LastName).ToListAsync();
 
         await LoadNotesAsync();
     }
@@ -159,7 +175,18 @@ else
     private async Task LoadNotesAsync()
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        notes = await db.ServiceNotes
+        var visibleClientIds = clients.Select(c => c.Id).ToHashSet();
+
+        var notesQuery = db.ServiceNotes.AsQueryable();
+        if (!isAdmin)
+        {
+            // Also include notes this provider wrote themselves, in case a
+            // note exists for a client with no current matching appointment
+            // (e.g. the appointment was later cancelled or reassigned).
+            notesQuery = notesQuery.Where(n => visibleClientIds.Contains(n.ClientId) || n.AuthorId == authorId);
+        }
+
+        notes = await notesQuery
             .Include(n => n.Client)
             .Include(n => n.Author)
             .OrderByDescending(n => n.CreatedAt)
