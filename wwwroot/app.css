@@ -1042,6 +1042,132 @@ h1:focus {
     background-color: #fff;
 }
 
+.admin-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.admin-search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--spa-sand-300);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--spa-ink-700);
+    background-color: #fff;
+}
+
+.admin-service-card {
+    background-color: #fff;
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.admin-service-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.admin-service-card h3 {
+    color: var(--spa-ink-800);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.admin-service-category {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--spa-sand-600);
+}
+
+.admin-service-description {
+    font-size: 0.875rem;
+    color: var(--spa-ink-400);
+    margin: 0;
+}
+
+.admin-service-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--spa-ink-600);
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--spa-sand-100);
+}
+
+.admin-service-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.admin-status-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+
+.admin-status-badge.active {
+    background-color: rgba(99, 138, 84, 0.15);
+    color: var(--spa-sage-700);
+}
+
+.admin-status-badge.inactive {
+    background-color: rgba(115, 118, 130, 0.15);
+    color: var(--spa-ink-600);
+}
+
+.admin-form-card {
+    background-color: #fff;
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.admin-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.admin-form-field label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--spa-ink-600);
+    margin-bottom: 0.3rem;
+}
+
+.admin-form-field input,
+.admin-form-field textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--spa-sand-300);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--spa-ink-700);
+    background-color: #fff;
+}
+
 .dashboard-grid {
     display: grid;
     grid-template-columns: 300px 1fr;
