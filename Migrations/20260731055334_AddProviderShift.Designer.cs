@@ -3,6 +3,7 @@ using System;
 using Family_and_Spa_Wellness.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Family_and_Spa_Wellness.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731055334_AddProviderShift")]
+    partial class AddProviderShift
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -52,7 +55,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.ToTable("Appointments");
                 });
 
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
                 {
                     b.Property<int>("Id")
@@ -62,10 +64,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsAvailable")
                     b.Property<int>("DayOfWeek")
                         .HasColumnType("INTEGER");
 
@@ -78,12 +76,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Property<int>("ProviderId")
                         .HasColumnType("INTEGER");
 
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProviderId", "Date")
-                        .IsUnique();
-
-                    b.ToTable("ProviderAvailability");
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("TEXT");
 
@@ -112,9 +104,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -133,7 +122,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Category = "Massage",
                             Description = "Targeted pressure to release deep muscle tension.",
                             DurationMinutes = 90,
-                            IsActive = true,
                             Name = "Deep Tissue Massage",
                             Price = 145m
                         },
@@ -143,7 +131,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Category = "Massage",
                             Description = "A gentle, flowing massage to ease everyday stress.",
                             DurationMinutes = 60,
-                            IsActive = true,
                             Name = "Swedish Relaxation Massage",
                             Price = 110m
                         },
@@ -153,7 +140,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Category = "Body",
                             Description = "Nourishing botanical wrap with essential oils.",
                             DurationMinutes = 75,
-                            IsActive = true,
                             Name = "Aromatherapy Body Wrap",
                             Price = 120m
                         },
@@ -163,7 +149,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Category = "Body",
                             Description = "A gentle, all-over exfoliating polish that leaves skin smooth, soft, and radiant.",
                             DurationMinutes = 50,
-                            IsActive = true,
                             Name = "Body Polish & Buff",
                             Price = 100m
                         },
@@ -173,7 +158,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Category = "Facial & Skincare",
                             Description = "Customized facial for radiant, glowing skin.",
                             DurationMinutes = 60,
-                            IsActive = true,
                             Name = "Signature Facial",
                             Price = 95m
                         },
@@ -183,7 +167,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Category = "Facial & Skincare",
                             Description = "A collagen-boosting treatment targeting fine lines and loss of elasticity.",
                             DurationMinutes = 60,
-                            IsActive = true,
                             Name = "Anti-Aging Collagen Facial",
                             Price = 130m
                         },
@@ -193,7 +176,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Category = "Wellness",
                             Description = "A full-body relaxation journey with lavender.",
                             DurationMinutes = 120,
-                            IsActive = true,
                             Name = "Lavender Relaxation Ritual",
                             Price = 180m
                         },
@@ -203,7 +185,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Category = "Wellness",
                             Description = "Add a custom essential oil blend to any massage or body treatment.",
                             DurationMinutes = 15,
-                            IsActive = true,
                             Name = "Aromatherapy Enhancement",
                             Price = 25m
                         });
@@ -370,7 +351,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Navigation("Service");
                 });
 
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
                 {
                     b.HasOne("Family_and_Spa_Wellness.Models.User", "Provider")
@@ -380,9 +360,6 @@ namespace Family_and_Spa_Wellness.Migrations
                         .IsRequired();
 
                     b.Navigation("Provider");
-                });
-
-                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Testimonial", b =>

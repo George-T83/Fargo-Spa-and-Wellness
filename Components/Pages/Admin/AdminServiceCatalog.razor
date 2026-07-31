@@ -1,6 +1,11 @@
 @page "/admin/services"
 @layout AdminLayout
+@rendermode InteractiveServer
 @attribute [Authorize(Roles = "Admin")]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <PageTitle>Service Catalog - Fargo Spa and Wellness</PageTitle>
 
@@ -9,6 +14,244 @@
     <p>Add, edit, or retire treatments and pricing.</p>
 </div>
 
-<div class="admin-coming-soon">
-    <p>Coming soon &mdash; tracked in <strong>FSW-22</strong>.</p>
-</div>
+@if (services is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    @if (statusMessage is not null)
+    {
+        <div class="admin-alert">@statusMessage</div>
+    }
+
+    <div class="admin-filter-bar">
+        <input class="admin-search-input" type="text" placeholder="Search treatments..." @bind="searchText" @bind:event="oninput" />
+        <select class="admin-role-select" @bind="selectedCategory">
+            <option value="All">All categories</option>
+            @foreach (var category in categories)
+            {
+                <option value="@category">@category</option>
+            }
+        </select>
+        <button type="button" class="btn btn-spa-primary" @onclick="StartCreate">+ New treatment</button>
+    </div>
+
+    @if (editingService is not null)
+    {
+        <div class="admin-form-card">
+            <h3>@(editingService.Id == 0 ? "New Treatment" : "Edit Treatment")</h3>
+
+            @if (validationErrors.Count > 0)
+            {
+                <div class="admin-alert">
+                    @foreach (var error in validationErrors)
+                    {
+                        <div>@error</div>
+                    }
+                </div>
+            }
+
+            <div class="admin-form-grid">
+                <div class="admin-form-field">
+                    <label>Name</label>
+                    <input type="text" @bind="editingService.Name" />
+                </div>
+                <div class="admin-form-field">
+                    <label>Category</label>
+                    <input type="text" @bind="editingService.Category" />
+                </div>
+                <div class="admin-form-field">
+                    <label>Duration (minutes)</label>
+                    <input type="number" @bind="editingService.DurationMinutes" />
+                </div>
+                <div class="admin-form-field">
+                    <label>Price</label>
+                    <input type="number" step="0.01" @bind="editingService.Price" />
+                </div>
+            </div>
+            <div class="admin-form-field mb-3">
+                <label>Description</label>
+                <textarea rows="3" @bind="editingService.Description"></textarea>
+            </div>
+
+            <div class="admin-service-actions">
+                <button type="button" class="btn btn-spa-primary" @onclick="SaveAsync">Save</button>
+                <button type="button" class="btn btn-spa-secondary" @onclick="CancelEdit">Cancel</button>
+            </div>
+        </div>
+    }
+
+    @if (FilteredServices.Count == 0)
+    {
+        <div class="admin-coming-soon">
+            <p>No treatments match your search.</p>
+        </div>
+    }
+    else
+    {
+        <div class="admin-card-grid">
+            @foreach (var service in FilteredServices)
+            {
+                <div class="admin-service-card">
+                    <div class="admin-service-card-header">
+                        <div>
+                            <div class="admin-service-category">@service.Category</div>
+                            <h3>@service.Name</h3>
+                        </div>
+                        <span class="admin-status-badge @(service.IsActive ? "active" : "inactive")">
+                            @(service.IsActive ? "Active" : "Inactive")
+                        </span>
+                    </div>
+                    <p class="admin-service-description">@service.Description</p>
+                    <div class="admin-service-meta">
+                        <span>@service.DurationMinutes min</span>
+                        <span>@service.Price.ToString("C")</span>
+                    </div>
+                    <div class="admin-service-actions">
+                        <button type="button" class="btn btn-spa-secondary btn-sm" @onclick="() => StartEdit(service)">Edit</button>
+                        <button type="button" class="btn btn-spa-secondary btn-sm" @onclick="() => ToggleActiveAsync(service)">
+                            @(service.IsActive ? "Deactivate" : "Activate")
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<Service>? services;
+    private List<string> categories = new();
+    private string searchText = string.Empty;
+    private string selectedCategory = "All";
+    private Service? editingService;
+    private List<string> validationErrors = new();
+    private string? statusMessage;
+
+    private List<Service> FilteredServices => (services ?? new())
+        .Where(s => selectedCategory == "All" || s.Category == selectedCategory)
+        .Where(s => string.IsNullOrWhiteSpace(searchText)
+            || s.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || s.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(s => s.Category).ThenBy(s => s.Name)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadServicesAsync();
+    }
+
+    private async Task LoadServicesAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        services = await db.Services.OrderBy(s => s.Category).ThenBy(s => s.Name).ToListAsync();
+        categories = services.Select(s => s.Category).Distinct().OrderBy(c => c).ToList();
+    }
+
+    private void StartCreate()
+    {
+        editingService = new Service { IsActive = true };
+        validationErrors.Clear();
+        statusMessage = null;
+    }
+
+    private void StartEdit(Service service)
+    {
+        // Edit a detached copy so Cancel doesn't leave a half-edited object
+        // bound to the card that's still displayed underneath the form.
+        editingService = new Service
+        {
+            Id = service.Id,
+            Name = service.Name,
+            Category = service.Category,
+            Description = service.Description,
+            DurationMinutes = service.DurationMinutes,
+            Price = service.Price,
+            IsActive = service.IsActive,
+        };
+        validationErrors.Clear();
+        statusMessage = null;
+    }
+
+    private void CancelEdit()
+    {
+        editingService = null;
+        validationErrors.Clear();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editingService is null)
+        {
+            return;
+        }
+
+        validationErrors = new List<string>();
+        if (string.IsNullOrWhiteSpace(editingService.Name))
+        {
+            validationErrors.Add("Name is required.");
+        }
+        if (string.IsNullOrWhiteSpace(editingService.Category))
+        {
+            validationErrors.Add("Category is required.");
+        }
+        if (editingService.DurationMinutes <= 0)
+        {
+            validationErrors.Add("Duration must be greater than 0.");
+        }
+        if (editingService.Price < 0)
+        {
+            validationErrors.Add("Price cannot be negative.");
+        }
+        if (validationErrors.Count > 0)
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        if (editingService.Id == 0)
+        {
+            db.Services.Add(new Service
+            {
+                Name = editingService.Name,
+                Category = editingService.Category,
+                Description = editingService.Description,
+                DurationMinutes = editingService.DurationMinutes,
+                Price = editingService.Price,
+                IsActive = true,
+            });
+            statusMessage = $"{editingService.Name} added to the catalog.";
+        }
+        else
+        {
+            var dbService = await db.Services.FindAsync(editingService.Id);
+            if (dbService is not null)
+            {
+                dbService.Name = editingService.Name;
+                dbService.Category = editingService.Category;
+                dbService.Description = editingService.Description;
+                dbService.DurationMinutes = editingService.DurationMinutes;
+                dbService.Price = editingService.Price;
+                statusMessage = $"{editingService.Name} updated.";
+            }
+        }
+
+        await db.SaveChangesAsync();
+        editingService = null;
+        await LoadServicesAsync();
+    }
+
+    private async Task ToggleActiveAsync(Service service)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbService = await db.Services.FindAsync(service.Id);
+        if (dbService is not null)
+        {
+            dbService.IsActive = !dbService.IsActive;
+            await db.SaveChangesAsync();
+            statusMessage = $"{dbService.Name} marked {(dbService.IsActive ? "Active" : "Inactive")}.";
+        }
+        await LoadServicesAsync();
+    }
+}

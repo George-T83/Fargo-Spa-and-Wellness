@@ -6,6 +6,7 @@
 @using Family_and_Spa_Wellness.Models
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>User Roles - Fargo Spa and Wellness</PageTitle>
 
@@ -104,3 +105,6 @@ else
         }
     }
 }
+<div class="admin-coming-soon">
+    <p>Coming soon &mdash; tracked in <strong>FSW-23</strong>.</p>
+</div>
