@@ -18,40 +18,38 @@
             <div class="alert alert-success" role="alert">@successMessage</div>
         }
 
-        <div class="profile-form-grid">
-            <div class="auth-field">
-                <label class="auth-label">First name</label>
-                <InputText class="auth-input" placeholder="First Name" @bind-Value="model.FirstName" />
-                <ValidationMessage For="() => model.FirstName" class="auth-error" />
-            </div>
+        <div class="auth-field">
+            <label class="auth-label">First name</label>
+            <InputText class="auth-input" placeholder="First Name" @bind-Value="model.FirstName" />
+            <ValidationMessage For="() => model.FirstName" class="auth-error" />
+        </div>
 
-            <div class="auth-field">
-                <label class="auth-label">Last name</label>
-                <InputText class="auth-input" placeholder="Last Name" @bind-Value="model.LastName" />
-                <ValidationMessage For="() => model.LastName" class="auth-error" />
-            </div>
+        <div class="auth-field">
+            <label class="auth-label">Last name</label>
+            <InputText class="auth-input" placeholder="Last Name" @bind-Value="model.LastName" />
+            <ValidationMessage For="() => model.LastName" class="auth-error" />
+        </div>
 
-            <div class="auth-field">
-                <label class="auth-label">Email address (read-only)</label>
-                <div class="auth-input-wrap">
-                    <span class="auth-input-icon">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="2" y="4" width="20" height="16" rx="2" />
-                            <path d="m22 7-10 5L2 7" />
-                        </svg>
-                    </span>
-                    <input type="email" class="auth-input has-icon" value="@model.Email" disabled />
-                </div>
-            </div>
-
-            <div class="auth-field">
-                <label class="auth-label">Phone number</label>
-                <InputText class="auth-input" placeholder="Phone Number" @bind-Value="model.Phone" />
-                <ValidationMessage For="() => model.Phone" class="auth-error" />
+        <div class="auth-field">
+            <label class="auth-label">Email address (read-only)</label>
+            <div class="auth-input-wrap">
+                <span class="auth-input-icon">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="4" width="20" height="16" rx="2" />
+                        <path d="m22 7-10 5L2 7" />
+                    </svg>
+                </span>
+                <input type="email" class="auth-input has-icon" value="@model.Email" disabled />
             </div>
         </div>
 
-        <button type="submit" class="btn btn-spa-primary">Save changes</button>
+        <div class="auth-field">
+            <label class="auth-label">Phone number</label>
+            <InputText class="auth-input" placeholder="Phone Number" @bind-Value="model.Phone" />
+            <ValidationMessage For="() => model.Phone" class="auth-error" />
+        </div>
+
+        <button type="submit" class="btn btn-spa-primary w-100">Save changes</button>
     </EditForm>
 </div>
 
