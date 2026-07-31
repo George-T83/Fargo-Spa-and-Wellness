@@ -2108,11 +2108,6 @@ h1:focus {
 
 /* Profile page */
 .profile-container {
-    max-width: 44rem;
-}
-
-.profile-form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 0 1.25rem;
+    max-width: 28rem;
+    margin: 0 auto;
 }
