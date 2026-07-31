@@ -3,6 +3,7 @@ using System;
 using Family_and_Spa_Wellness.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Family_and_Spa_Wellness.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731135016_AddServiceNote")]
+    partial class AddServiceNote
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -50,32 +53,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.HasIndex("ServiceId");
 
                     b.ToTable("Appointments");
-                });
-
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsAvailable")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ProviderId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProviderId", "Date")
-                        .IsUnique();
-
-                    b.ToTable("ProviderAvailability");
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Service", b =>
@@ -402,17 +379,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Client");
-                });
-
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
-                {
-                    b.HasOne("Family_and_Spa_Wellness.Models.User", "Provider")
-                        .WithMany()
-                        .HasForeignKey("ProviderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Provider");
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Testimonial", b =>
