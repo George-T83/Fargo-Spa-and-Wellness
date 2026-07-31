@@ -28,6 +28,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(a => a.ServiceId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<Appointment>()
+            .HasOne(a => a.Provider)
+            .WithMany()
+            .HasForeignKey(a => a.ProviderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<Service>().HasData(
             new Service { Id = 1, Name = "Deep Tissue Massage", Category = "Massage", Description = "Targeted pressure to release deep muscle tension.", DurationMinutes = 90, Price = 145m },
             new Service { Id = 2, Name = "Swedish Relaxation Massage", Category = "Massage", Description = "A gentle, flowing massage to ease everyday stress.", DurationMinutes = 60, Price = 110m },
