@@ -150,7 +150,7 @@
                         @if (providers.Count > 0)
                         {
                             <div class="admin-form-field booking-provider-field">
-                                <label>Preferred therapist (optional)</label>
+                                <label>Preferred provider (optional)</label>
                                 <select class="admin-role-select" @bind="selectedProviderId" @bind:after="LoadSlotsAsync">
                                     <option value="0">No preference</option>
                                     @foreach (var provider in providers)
@@ -197,7 +197,7 @@
                             @if (selectedProviderId != 0)
                             {
                                 <div class="booking-review-row">
-                                    <span class="booking-review-label">Therapist</span>
+                                    <span class="booking-review-label">Provider</span>
                                     <span class="booking-review-value">@(providers.FirstOrDefault(p => p.Id == selectedProviderId)?.FullName ?? "No preference")</span>
                                 </div>
                             }
