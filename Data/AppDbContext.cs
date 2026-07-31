@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<User> Users => Set<User>();
     public DbSet<Testimonial> Testimonials => Set<Testimonial>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
+    public DbSet<ProviderShift> ProviderShifts => Set<ProviderShift>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +33,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(a => a.Provider)
             .WithMany()
             .HasForeignKey(a => a.ProviderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProviderShift>()
+            .HasIndex(ps => new { ps.ProviderId, ps.DayOfWeek })
+            .IsUnique();
+
+        modelBuilder.Entity<ProviderShift>()
+            .HasOne(ps => ps.Provider)
+            .WithMany()
+            .HasForeignKey(ps => ps.ProviderId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Service>().HasData(
