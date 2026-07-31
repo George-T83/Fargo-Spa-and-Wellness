@@ -1,6 +1,11 @@
 @page "/admin/calendar"
 @layout AdminLayout
+@rendermode InteractiveServer
 @attribute [Authorize(Roles = "Admin")]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <PageTitle>Master Calendar - Fargo Spa and Wellness</PageTitle>
 
@@ -9,6 +14,376 @@
     <p>View all bookings, resolve conflicts, and apply overrides.</p>
 </div>
 
-<div class="admin-coming-soon">
-    <p>Coming soon &mdash; tracked in <strong>FSW-26</strong>.</p>
-</div>
+@if (appointments is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="calendar-toolbar">
+        <div class="calendar-week-nav">
+            <button type="button" class="calendar-nav-btn" @onclick="GoToPreviousWeek">&larr;</button>
+            <span class="calendar-week-label">@WeekLabel</span>
+            <button type="button" class="calendar-nav-btn" @onclick="GoToNextWeek">&rarr;</button>
+            <button type="button" class="btn btn-spa-secondary btn-sm" @onclick="GoToToday">Today</button>
+        </div>
+        <div class="calendar-toolbar-right">
+            <select class="admin-role-select" @bind="selectedProviderFilter" @bind:after="LoadWeekAsync">
+                <option value="0">All providers</option>
+                @foreach (var provider in providers)
+                {
+                    <option value="@provider.Id">@provider.FullName</option>
+                }
+            </select>
+            <button type="button" class="btn btn-spa-primary btn-sm" @onclick="StartCreate">+ New booking</button>
+        </div>
+    </div>
+
+    @if (conflictCount > 0)
+    {
+        <div class="calendar-conflict-banner">
+            @conflictCount scheduling conflict@(conflictCount == 1 ? "" : "s") detected this week - review and resolve below.
+        </div>
+    }
+
+    @if (statusMessage is not null)
+    {
+        <div class="admin-alert">@statusMessage</div>
+    }
+
+    @if (editingAppointment is not null)
+    {
+        <div class="admin-form-card">
+            <h3>@(editingAppointment.Id == 0 ? "New Booking" : "Edit Booking")</h3>
+
+            @if (validationErrors.Count > 0)
+            {
+                <div class="admin-alert">
+                    @foreach (var error in validationErrors)
+                    {
+                        <div>@error</div>
+                    }
+                </div>
+            }
+
+            <div class="admin-form-grid">
+                <div class="admin-form-field">
+                    <label>Client</label>
+                    <select class="admin-role-select" @bind="editingAppointment.ClientId">
+                        <option value="0">Select a client...</option>
+                        @foreach (var client in clients)
+                        {
+                            <option value="@client.Id">@client.FullName</option>
+                        }
+                    </select>
+                </div>
+                <div class="admin-form-field">
+                    <label>Service</label>
+                    <select class="admin-role-select" @bind="editingAppointment.ServiceId" @bind:after="ApplyServiceDuration">
+                        <option value="0">Select a service...</option>
+                        @foreach (var service in services)
+                        {
+                            <option value="@service.Id">@service.Name (@service.DurationMinutes min)</option>
+                        }
+                    </select>
+                </div>
+                <div class="admin-form-field">
+                    <label>Provider</label>
+                    <select class="admin-role-select" @bind="editingProviderId">
+                        <option value="0">Unassigned</option>
+                        @foreach (var provider in providers)
+                        {
+                            <option value="@provider.Id">@provider.FullName</option>
+                        }
+                    </select>
+                </div>
+                <div class="admin-form-field">
+                    <label>Start</label>
+                    <input type="datetime-local" @bind="editingAppointment.StartTime" />
+                </div>
+                <div class="admin-form-field">
+                    <label>End</label>
+                    <input type="datetime-local" @bind="editingAppointment.EndTime" />
+                </div>
+            </div>
+
+            <div class="admin-service-actions">
+                <button type="button" class="btn btn-spa-primary" @onclick="SaveAsync">Save</button>
+                <button type="button" class="btn btn-spa-secondary" @onclick="CancelEdit">Cancel</button>
+                @if (editingAppointment.Id != 0)
+                {
+                    <button type="button" class="btn-reject" @onclick="CancelBookingAsync">Cancel Booking</button>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="calendar-grid-wrap">
+        <div class="calendar-grid">
+            <div class="calendar-time-header"></div>
+            @foreach (var day in WeekDays)
+            {
+                <div class="calendar-day-header @(day.Date == DateTime.Today ? "today" : "")">@day.ToString("ddd M/d")</div>
+            }
+
+            <div class="calendar-time-col">
+                @for (var hour = StartHour; hour < EndHour; hour++)
+                {
+                    <div class="calendar-time-label">@(new DateTime(1, 1, 1, hour, 0, 0).ToString("h tt"))</div>
+                }
+            </div>
+
+            @foreach (var day in WeekDays)
+            {
+                <div class="calendar-day-body" style="height:@((EndHour - StartHour) * PxPerHour)px">
+                    @foreach (var appt in appointments.Where(a => a.StartTime.Date == day.Date))
+                    {
+                        <div class="calendar-appt-block @(conflictIds.Contains(appt.Id) ? "conflict" : "")"
+                             style="top:@(BlockTop(appt))px; height:@(BlockHeight(appt))px"
+                             title="@BlockTooltip(appt)"
+                             @onclick="() => StartEdit(appt)">
+                            <span class="calendar-appt-time">@appt.StartTime.ToString("h:mmtt")</span>
+                            <span>@(appt.Client?.FullName ?? "Unknown client")</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private const int StartHour = 8;
+    private const int EndHour = 19;
+    private const int PxPerHour = 60;
+
+    private DateTime weekStart = StartOfWeek(DateTime.Today);
+    private List<User> providers = new();
+    private List<User> clients = new();
+    private List<Service> services = new();
+    private int selectedProviderFilter;
+    private List<Appointment>? appointments;
+    private HashSet<int> conflictIds = new();
+    private int conflictCount;
+
+    private Appointment? editingAppointment;
+    private int editingProviderId;
+    private List<string> validationErrors = new();
+    private string? statusMessage;
+
+    private IEnumerable<DateTime> WeekDays => Enumerable.Range(0, 7).Select(i => weekStart.AddDays(i));
+    private string WeekLabel => $"{weekStart.ToString("MMMM yyyy")} - Week of {weekStart.ToString("MMM d")}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        providers = await db.Users.Where(u => u.Role == "Provider").OrderBy(u => u.LastName).ToListAsync();
+        clients = await db.Users.Where(u => u.Role == "Client").OrderBy(u => u.LastName).ToListAsync();
+        services = await db.Services.Where(s => s.IsActive).OrderBy(s => s.Name).ToListAsync();
+
+        await LoadWeekAsync();
+    }
+
+    private async Task LoadWeekAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var weekEnd = weekStart.AddDays(7);
+
+        var query = db.Appointments
+            .Include(a => a.Client)
+            .Include(a => a.Service)
+            .Include(a => a.Provider)
+            .Where(a => a.StartTime >= weekStart && a.StartTime < weekEnd);
+
+        if (selectedProviderFilter != 0)
+        {
+            query = query.Where(a => a.ProviderId == selectedProviderFilter);
+        }
+
+        appointments = await query.OrderBy(a => a.StartTime).ToListAsync();
+
+        // Conflict = same non-null ProviderId with overlapping [StartTime, EndTime)
+        // ranges. Appointments with no provider assigned aren't checked -
+        // there's no shared resource to conflict over yet, since the
+        // client-facing booking flow doesn't assign a provider (confirmed
+        // with Moses before building this).
+        conflictIds = new HashSet<int>();
+        foreach (var group in appointments.Where(a => a.ProviderId.HasValue).GroupBy(a => a.ProviderId!.Value))
+        {
+            var list = group.ToList();
+            for (var i = 0; i < list.Count; i++)
+            {
+                for (var j = i + 1; j < list.Count; j++)
+                {
+                    if (list[i].StartTime < list[j].EndTime && list[j].StartTime < list[i].EndTime)
+                    {
+                        conflictIds.Add(list[i].Id);
+                        conflictIds.Add(list[j].Id);
+                    }
+                }
+            }
+        }
+        conflictCount = conflictIds.Count;
+    }
+
+    private async Task GoToPreviousWeek()
+    {
+        weekStart = weekStart.AddDays(-7);
+        await LoadWeekAsync();
+    }
+
+    private async Task GoToNextWeek()
+    {
+        weekStart = weekStart.AddDays(7);
+        await LoadWeekAsync();
+    }
+
+    private async Task GoToToday()
+    {
+        weekStart = StartOfWeek(DateTime.Today);
+        await LoadWeekAsync();
+    }
+
+    private static DateTime StartOfWeek(DateTime date) => date.Date.AddDays(-(int)date.DayOfWeek);
+
+    private double BlockTop(Appointment appt)
+    {
+        var minutesFromStart = (appt.StartTime.Hour - StartHour) * 60 + appt.StartTime.Minute;
+        var top = minutesFromStart / 60.0 * PxPerHour;
+        return Math.Max(0, top);
+    }
+
+    private double BlockHeight(Appointment appt)
+    {
+        var durationMinutes = Math.Max((appt.EndTime - appt.StartTime).TotalMinutes, 15);
+        return durationMinutes / 60.0 * PxPerHour;
+    }
+
+    private static string BlockTooltip(Appointment appt) =>
+        $"{appt.StartTime:h:mm tt}-{appt.EndTime:h:mm tt}: {appt.Client?.FullName} - {appt.Service?.Name}" +
+        (appt.Provider is not null ? $" (with {appt.Provider.FullName})" : " (unassigned)");
+
+    private void StartCreate()
+    {
+        var defaultStart = DateTime.Today.AddHours(9);
+        editingAppointment = new Appointment { StartTime = defaultStart, EndTime = defaultStart.AddHours(1) };
+        editingProviderId = 0;
+        validationErrors.Clear();
+        statusMessage = null;
+    }
+
+    private void StartEdit(Appointment appt)
+    {
+        editingAppointment = new Appointment
+        {
+            Id = appt.Id,
+            ClientId = appt.ClientId,
+            ServiceId = appt.ServiceId,
+            ProviderId = appt.ProviderId,
+            StartTime = appt.StartTime,
+            EndTime = appt.EndTime,
+        };
+        editingProviderId = appt.ProviderId ?? 0;
+        validationErrors.Clear();
+        statusMessage = null;
+    }
+
+    private void CancelEdit()
+    {
+        editingAppointment = null;
+        validationErrors.Clear();
+    }
+
+    private void ApplyServiceDuration()
+    {
+        if (editingAppointment is null)
+        {
+            return;
+        }
+
+        var service = services.FirstOrDefault(s => s.Id == editingAppointment.ServiceId);
+        if (service is not null)
+        {
+            editingAppointment.EndTime = editingAppointment.StartTime.AddMinutes(service.DurationMinutes);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (editingAppointment is null)
+        {
+            return;
+        }
+
+        validationErrors = new List<string>();
+        if (editingAppointment.ClientId == 0)
+        {
+            validationErrors.Add("Client is required.");
+        }
+        if (editingAppointment.ServiceId == 0)
+        {
+            validationErrors.Add("Service is required.");
+        }
+        if (editingAppointment.EndTime <= editingAppointment.StartTime)
+        {
+            validationErrors.Add("End time must be after start time.");
+        }
+        if (validationErrors.Count > 0)
+        {
+            return;
+        }
+
+        var providerId = editingProviderId == 0 ? (int?)null : editingProviderId;
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        if (editingAppointment.Id == 0)
+        {
+            db.Appointments.Add(new Appointment
+            {
+                ClientId = editingAppointment.ClientId,
+                ServiceId = editingAppointment.ServiceId,
+                ProviderId = providerId,
+                StartTime = editingAppointment.StartTime,
+                EndTime = editingAppointment.EndTime,
+            });
+            statusMessage = "Booking created.";
+        }
+        else
+        {
+            var dbAppt = await db.Appointments.FindAsync(editingAppointment.Id);
+            if (dbAppt is not null)
+            {
+                dbAppt.ClientId = editingAppointment.ClientId;
+                dbAppt.ServiceId = editingAppointment.ServiceId;
+                dbAppt.ProviderId = providerId;
+                dbAppt.StartTime = editingAppointment.StartTime;
+                dbAppt.EndTime = editingAppointment.EndTime;
+                statusMessage = "Booking updated.";
+            }
+        }
+
+        await db.SaveChangesAsync();
+        editingAppointment = null;
+        await LoadWeekAsync();
+    }
+
+    private async Task CancelBookingAsync()
+    {
+        if (editingAppointment is null || editingAppointment.Id == 0)
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbAppt = await db.Appointments.FindAsync(editingAppointment.Id);
+        if (dbAppt is not null)
+        {
+            db.Appointments.Remove(dbAppt);
+            await db.SaveChangesAsync();
+            statusMessage = "Booking cancelled.";
+        }
+
+        editingAppointment = null;
+        await LoadWeekAsync();
+    }
+}
