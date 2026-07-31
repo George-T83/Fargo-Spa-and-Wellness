@@ -1952,11 +1952,25 @@ h1:focus {
     background: linear-gradient(135deg, #638a54, #4d6e41);
 }
 
+.spa-footer-brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    line-height: 1.1;
+}
+
 .spa-footer-brand-name {
     font-family: 'Fraunces', Georgia, serif;
     font-weight: 600;
     font-size: 1.05rem;
     color: #fff;
+}
+
+.spa-footer-brand-subtag {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--spa-sand-300);
 }
 
 .spa-footer-tagline {
