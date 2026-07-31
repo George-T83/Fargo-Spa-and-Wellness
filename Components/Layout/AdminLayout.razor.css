@@ -116,6 +116,22 @@
     color: #d6c3a8;
 }
 
+::deep .admin-home-link {
+    display: block;
+    padding: 0.55rem 0.6rem;
+    margin-top: 0.5rem;
+    border-radius: 0.5rem;
+    color: #9a9da6;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+::deep .admin-home-link:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: #fff;
+}
+
 .admin-user {
     display: flex;
     align-items: center;
