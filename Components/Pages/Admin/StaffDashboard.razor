@@ -1,5 +1,12 @@
 @page "/admin/dashboard"
 @layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Provider")]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>My Dashboard - Fargo Spa and Wellness</PageTitle>
@@ -9,6 +16,98 @@
     <p>Your appointments and daily schedule.</p>
 </div>
 
+@if (appointments is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="admin-stat-grid">
+        <div class="admin-stat-card">
+            <div class="admin-stat-value">@todayCount</div>
+            <div class="admin-stat-label">Today</div>
+        </div>
+        <div class="admin-stat-card">
+            <div class="admin-stat-value">@upcomingCount</div>
+            <div class="admin-stat-label">Upcoming</div>
+        </div>
+        <div class="admin-stat-card">
+            <div class="admin-stat-value">@completedCount</div>
+            <div class="admin-stat-label">Completed</div>
+        </div>
+    </div>
+
+    @if (appointments.Count == 0)
+    {
+        <div class="admin-coming-soon">
+            <p>No appointments assigned to you yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Client</th>
+                        <th>Service</th>
+                        <th>Date &amp; Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in appointments)
+                    {
+                        <tr>
+                            <td>@a.Client?.FullName</td>
+                            <td>@a.Service?.Name</td>
+                            <td>@a.StartTime.ToString("MMM d, yyyy h:mm tt")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private List<Appointment>? appointments;
+    private int todayCount;
+    private int upcomingCount;
+    private int completedCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null)
+        {
+            return;
+        }
+
+        var authState = await AuthStateTask;
+        var idClaim = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idClaim, out var providerId))
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        appointments = await db.Appointments
+            .Include(a => a.Client)
+            .Include(a => a.Service)
+            .Where(a => a.ProviderId == providerId)
+            .OrderBy(a => a.StartTime)
+            .ToListAsync();
+
+        // There is no separate appointment status field, so state is derived
+        // from StartTime/EndTime against "now". An appointment can count as
+        // both "today" and "upcoming" if it's later today.
+        todayCount = appointments.Count(a => a.StartTime.Date == DateTime.Today);
+        upcomingCount = appointments.Count(a => a.StartTime > DateTime.Now);
+        completedCount = appointments.Count(a => a.EndTime < DateTime.Now);
+    }
+}
 <div class="admin-coming-soon">
     <p>Coming soon &mdash; tracked in <strong>FSW-19</strong>.</p>
 </div>
