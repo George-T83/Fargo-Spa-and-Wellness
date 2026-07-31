@@ -7,6 +7,7 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>My Dashboard - Fargo Spa and Wellness</PageTitle>
 
@@ -107,3 +108,6 @@ else
         completedCount = appointments.Count(a => a.EndTime < DateTime.Now);
     }
 }
+<div class="admin-coming-soon">
+    <p>Coming soon &mdash; tracked in <strong>FSW-19</strong>.</p>
+</div>
