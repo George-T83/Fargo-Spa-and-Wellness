@@ -1,5 +1,4 @@
 @page "/admin/notes"
-@layout AdminLayout
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = "Provider,Admin")]
 @using Family_and_Spa_Wellness.Data
@@ -10,6 +9,7 @@
 
 <PageTitle>Client Service Notes - Fargo Spa and Wellness</PageTitle>
 
+<LayoutView Layout="@CurrentLayout">
 <div class="admin-page-header">
     <h1>Client Service Notes</h1>
     <p>Allergies, preferences, and care details staff should know about a client.</p>
@@ -109,6 +109,7 @@ else
         </div>
     }
 }
+</LayoutView>
 
 @code {
     [CascadingParameter]
@@ -116,6 +117,7 @@ else
 
     private int authorId;
     private bool isAdmin;
+    private Type CurrentLayout => isAdmin ? typeof(AdminLayout) : typeof(ProviderLayout);
     private List<User> clients = new();
     private List<ServiceNote>? notes;
     private string searchText = string.Empty;
