@@ -25,6 +25,11 @@
             </nav>
 
             <div class="spa-actions">
+                <AuthorizeView Roles="Admin">
+                    <Authorized>
+                        <NavLink href="/admin" class="btn btn-spa-secondary btn-sm">Admin Portal</NavLink>
+                    </Authorized>
+                </AuthorizeView>
                 <AuthorizeView>
                     <Authorized>
                         <span class="spa-user-greeting">Hi, @context.User.Identity?.Name?.Split(' ')[0]</span>
