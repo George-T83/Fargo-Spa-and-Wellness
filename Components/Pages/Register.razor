@@ -114,6 +114,9 @@
 </div>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
     [SupplyParameterFromQuery(Name = "returnUrl")]
     public string? ReturnUrl { get; set; }
 
@@ -121,6 +124,30 @@
     private bool submitted;
     private string? errorMessage;
     private string livePassword = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null)
+        {
+            return;
+        }
+
+        var authState = await AuthStateTask;
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(ReturnUrl) && ReturnUrl.StartsWith("/") && !ReturnUrl.StartsWith("//") && !ReturnUrl.StartsWith("/\\"))
+        {
+            NavigationManager.NavigateTo(ReturnUrl);
+            return;
+        }
+
+        var redirectUrl = user.IsInRole("Admin") ? "/admin" : user.IsInRole("Provider") ? "/admin/dashboard" : "/dashboard";
+        NavigationManager.NavigateTo(redirectUrl);
+    }
 
     private void OnPasswordInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
