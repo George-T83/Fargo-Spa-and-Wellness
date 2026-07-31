@@ -957,6 +957,91 @@ h1:focus {
     color: var(--spa-ink-400);
 }
 
+.admin-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.admin-stat-card {
+    background-color: #fff;
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    text-align: center;
+}
+
+.admin-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--spa-ink-800);
+}
+
+.admin-stat-label {
+    font-size: 0.8rem;
+    color: var(--spa-ink-400);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 0.25rem;
+}
+
+.admin-alert {
+    background-color: var(--spa-sage-50);
+    border: 1px solid var(--spa-sage-100);
+    color: var(--spa-sage-700);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.admin-table-wrap {
+    background-color: #fff;
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 0.75rem 1.25rem;
+    text-align: left;
+    font-size: 0.9rem;
+}
+
+.admin-table thead th {
+    background-color: var(--spa-sand-50);
+    color: var(--spa-ink-400);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+}
+
+.admin-table tbody tr {
+    border-top: 1px solid var(--spa-sand-100);
+}
+
+.admin-table .text-muted {
+    color: var(--spa-ink-400);
+    font-size: 0.82rem;
+}
+
+.admin-role-select {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--spa-sand-300);
+    border-radius: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--spa-ink-700);
+    background-color: #fff;
+}
+
 .dashboard-grid {
     display: grid;
     grid-template-columns: 300px 1fr;
