@@ -9,6 +9,14 @@
                 else
                 {
                     <RedirectToAccessDenied />
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated != true)
+                {
+                    <p>Please <a href="/login">sign in</a> to view this page.</p>
+                }
+                else
+                {
+                    <p>You don't have permission to view this page.</p>
                 }
             </NotAuthorized>
         </AuthorizeRouteView>
