@@ -55,6 +55,64 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.ToTable("Appointments");
                 });
 
+            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsAvailable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ProviderId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("ProviderAvailability");
+                });
+
+            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsWorking")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ProviderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderId", "DayOfWeek")
+                        .IsUnique();
+
+                    b.ToTable("ProviderShifts");
+                });
+
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Service", b =>
                 {
                     b.Property<int>("Id")
@@ -379,6 +437,28 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Client");
+                });
+
+            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
+                {
+                    b.HasOne("Family_and_Spa_Wellness.Models.User", "Provider")
+                        .WithMany()
+                        .HasForeignKey("ProviderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Provider");
+                });
+
+            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
+                {
+                    b.HasOne("Family_and_Spa_Wellness.Models.User", "Provider")
+                        .WithMany()
+                        .HasForeignKey("ProviderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Provider");
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Testimonial", b =>
