@@ -1,7 +1,7 @@
 @page "/admin/availability"
 @layout AdminLayout
 @rendermode InteractiveServer
-@attribute [Authorize(Roles = "Provider")]
+@attribute [Authorize(Roles = "Provider,Admin")]
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
 @using Family_and_Spa_Wellness.Services
@@ -9,18 +9,38 @@
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 
-<PageTitle>My Availability - Fargo Spa and Wellness</PageTitle>
+<PageTitle>@(isAdmin ? "Staff Availability" : "My Availability") - Fargo Spa and Wellness</PageTitle>
 
 <div class="admin-page-header">
-    <h1>My Availability</h1>
-    <p>Set your weekly working hours.</p>
+    <h1>@(isAdmin ? "Staff Availability" : "My Availability")</h1>
+    <p>@(isAdmin ? "View and edit any provider's weekly working hours." : "Set your weekly working hours.")</p>
 </div>
 
-@if (shifts is null)
+@if (isAdmin)
 {
-    <p>Loading...</p>
+    @if (providers is null)
+    {
+        <p>Loading...</p>
+    }
+    else if (providers.Count == 0)
+    {
+        <div class="admin-coming-soon">
+            <p>No providers yet. Assign the Provider role to a user on the User Roles page first.</p>
+        </div>
+    }
+    else
+    {
+        <select class="admin-role-select mb-3" value="@selectedProviderId" @onchange="OnProviderSelected">
+            <option value="0" disabled>Select a provider...</option>
+            @foreach (var provider in providers)
+            {
+                <option value="@provider.Id">@provider.FullName</option>
+            }
+        </select>
+    }
 }
-else
+
+@if (shifts is not null)
 {
     @if (validationErrors.Count > 0)
     {
@@ -74,12 +94,19 @@ else
 
     <button type="button" class="btn btn-spa-primary mt-3" @onclick="SaveAsync">Save Availability</button>
 }
+else if (isAdmin && providers is not null && providers.Count > 0)
+{
+    <p>Select a provider above to view their schedule.</p>
+}
 
 @code {
     [CascadingParameter]
     private Task<AuthenticationState>? AuthStateTask { get; set; }
 
-    private int providerId;
+    private bool isAdmin;
+    private int viewerId;
+    private int selectedProviderId;
+    private List<User>? providers;
     private List<ProviderShift>? shifts;
     private string? statusMessage;
     private List<string> validationErrors = new();
@@ -93,19 +120,44 @@ else
 
         var authState = await AuthStateTask;
         var idClaim = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-        if (!int.TryParse(idClaim, out providerId))
+        if (!int.TryParse(idClaim, out viewerId))
         {
             return;
         }
 
-        await LoadShiftsAsync();
+        isAdmin = authState.User.IsInRole("Admin");
+
+        if (isAdmin)
+        {
+            await using var db = await DbContextFactory.CreateDbContextAsync();
+            providers = await db.Users
+                .Where(u => u.Role == "Provider")
+                .OrderBy(u => u.LastName)
+                .ToListAsync();
+        }
+        else
+        {
+            selectedProviderId = viewerId;
+            await LoadShiftsAsync();
+        }
+    }
+
+    private async Task OnProviderSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var newProviderId) && newProviderId != 0)
+        {
+            selectedProviderId = newProviderId;
+            statusMessage = null;
+            validationErrors.Clear();
+            await LoadShiftsAsync();
+        }
     }
 
     private async Task LoadShiftsAsync()
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
         var existing = await db.ProviderShifts
-            .Where(s => s.ProviderId == providerId)
+            .Where(s => s.ProviderId == selectedProviderId)
             .ToListAsync();
 
         var result = new List<ProviderShift>();
@@ -121,7 +173,7 @@ else
                 var isWeekday = day is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
                 result.Add(new ProviderShift
                 {
-                    ProviderId = providerId,
+                    ProviderId = selectedProviderId,
                     DayOfWeek = day,
                     IsWorking = isWeekday,
                     StartTime = new TimeSpan(9, 0, 0),
@@ -149,9 +201,9 @@ else
         }
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        await ProviderShiftService.SaveWeeklyShifts(db, providerId, shifts);
+        await ProviderShiftService.SaveWeeklyShifts(db, selectedProviderId, shifts);
 
-        statusMessage = "Your weekly availability has been saved.";
+        statusMessage = isAdmin ? "That provider's availability has been saved." : "Your weekly availability has been saved.";
         await LoadShiftsAsync();
     }
 }
