@@ -1,0 +1,214 @@
+@page "/admin/notes"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Provider,Admin")]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+
+<PageTitle>Client Service Notes - Fargo Spa and Wellness</PageTitle>
+
+<div class="admin-page-header">
+    <h1>Client Service Notes</h1>
+    <p>Allergies, preferences, and care details staff should know about a client.</p>
+</div>
+
+@if (notes is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    @if (statusMessage is not null)
+    {
+        <div class="admin-alert">@statusMessage</div>
+    }
+
+    <div class="admin-filter-bar">
+        <input class="admin-search-input" type="text" placeholder="Search client or note text..." @bind="searchText" @bind:event="oninput" />
+        <select class="admin-role-select" @bind="selectedType">
+            <option value="All">All types</option>
+            <option value="Allergy">Allergy</option>
+            <option value="Preference">Preference</option>
+            <option value="General">General</option>
+        </select>
+        <button type="button" class="btn btn-spa-primary" @onclick="StartCreate">+ Add note</button>
+    </div>
+
+    @if (showForm)
+    {
+        <div class="admin-form-card">
+            <h3>New Note</h3>
+
+            @if (validationErrors.Count > 0)
+            {
+                <div class="admin-alert">
+                    @foreach (var error in validationErrors)
+                    {
+                        <div>@error</div>
+                    }
+                </div>
+            }
+
+            <div class="admin-form-grid">
+                <div class="admin-form-field">
+                    <label>Client</label>
+                    <select class="admin-role-select" @bind="newClientId">
+                        <option value="0">Select a client...</option>
+                        @foreach (var client in clients)
+                        {
+                            <option value="@client.Id">@client.FullName</option>
+                        }
+                    </select>
+                </div>
+                <div class="admin-form-field">
+                    <label>Category</label>
+                    <select class="admin-role-select" @bind="newNoteType">
+                        <option value="Allergy">Allergy</option>
+                        <option value="Preference">Preference</option>
+                        <option value="General">General</option>
+                    </select>
+                </div>
+            </div>
+            <div class="admin-form-field mb-3">
+                <label>Note</label>
+                <textarea rows="3" @bind="newNoteText"></textarea>
+            </div>
+
+            <div class="admin-service-actions">
+                <button type="button" class="btn btn-spa-primary" @onclick="SaveAsync">Save</button>
+                <button type="button" class="btn btn-spa-secondary" @onclick="CancelCreate">Cancel</button>
+            </div>
+        </div>
+    }
+
+    @if (FilteredNotes.Count == 0)
+    {
+        <div class="admin-coming-soon">
+            <p>No notes match this view.</p>
+        </div>
+    }
+    else
+    {
+        <div class="notes-grid">
+            @foreach (var note in FilteredNotes)
+            {
+                <div class="note-card">
+                    <div class="note-card-header">
+                        <span class="note-client-name">@(note.Client?.FullName ?? "Unknown client")</span>
+                        <span class="note-type-badge @note.NoteType.ToLowerInvariant()">@note.NoteType</span>
+                    </div>
+                    <p class="note-text">@note.NoteText</p>
+                    <div class="note-card-footer">
+                        @(note.Author?.FullName ?? "Unknown staff") &middot; @note.CreatedAt.ToString("MMM d, yyyy")
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private int authorId;
+    private List<User> clients = new();
+    private List<ServiceNote>? notes;
+    private string searchText = string.Empty;
+    private string selectedType = "All";
+    private string? statusMessage;
+
+    private bool showForm;
+    private int newClientId;
+    private string newNoteType = "General";
+    private string newNoteText = string.Empty;
+    private List<string> validationErrors = new();
+
+    private List<ServiceNote> FilteredNotes => (notes ?? new())
+        .Where(n => selectedType == "All" || n.NoteType == selectedType)
+        .Where(n => string.IsNullOrWhiteSpace(searchText)
+            || (n.Client?.FullName.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+            || n.NoteText.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(n => n.CreatedAt)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null)
+        {
+            return;
+        }
+
+        var authState = await AuthStateTask;
+        var idClaim = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idClaim, out authorId))
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        clients = await db.Users.Where(u => u.Role == "Client").OrderBy(u => u.LastName).ToListAsync();
+
+        await LoadNotesAsync();
+    }
+
+    private async Task LoadNotesAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        notes = await db.ServiceNotes
+            .Include(n => n.Client)
+            .Include(n => n.Author)
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync();
+    }
+
+    private void StartCreate()
+    {
+        showForm = true;
+        newClientId = 0;
+        newNoteType = "General";
+        newNoteText = string.Empty;
+        validationErrors.Clear();
+        statusMessage = null;
+    }
+
+    private void CancelCreate()
+    {
+        showForm = false;
+        validationErrors.Clear();
+    }
+
+    private async Task SaveAsync()
+    {
+        validationErrors = new List<string>();
+        if (newClientId == 0)
+        {
+            validationErrors.Add("Client is required.");
+        }
+        if (string.IsNullOrWhiteSpace(newNoteText))
+        {
+            validationErrors.Add("Note text is required.");
+        }
+        if (validationErrors.Count > 0)
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        db.ServiceNotes.Add(new ServiceNote
+        {
+            ClientId = newClientId,
+            AuthorId = authorId,
+            NoteType = newNoteType,
+            NoteText = newNoteText,
+        });
+        await db.SaveChangesAsync();
+
+        statusMessage = "Note added.";
+        showForm = false;
+        await LoadNotesAsync();
+    }
+}
