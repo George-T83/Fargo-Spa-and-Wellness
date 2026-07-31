@@ -3,6 +3,7 @@ using System;
 using Family_and_Spa_Wellness.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Family_and_Spa_Wellness.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731063627_AddIsActiveToService")]
+    partial class AddIsActiveToService
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -50,49 +53,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.HasIndex("ServiceId");
 
                     b.ToTable("Appointments");
-                });
-
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsAvailable")
-                    b.Property<int>("DayOfWeek")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<TimeSpan>("EndTime")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsWorking")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ProviderId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProviderId", "Date")
-                        .IsUnique();
-
-                    b.ToTable("ProviderAvailability");
-                    b.Property<TimeSpan>("StartTime")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProviderId", "DayOfWeek")
-                        .IsUnique();
-
-                    b.ToTable("ProviderShifts");
                 });
 
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Service", b =>
@@ -366,21 +326,6 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Navigation("Client");
 
                     b.Navigation("Provider");
-
-                    b.Navigation("Service");
-                });
-
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderAvailability", b =>
-            modelBuilder.Entity("Family_and_Spa_Wellness.Models.ProviderShift", b =>
-                {
-                    b.HasOne("Family_and_Spa_Wellness.Models.User", "Provider")
-                        .WithMany()
-                        .HasForeignKey("ProviderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Provider");
-                });
 
                     b.Navigation("Service");
                 });
