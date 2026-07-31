@@ -1,14 +1,141 @@
 @page "/admin/testimonials"
 @layout AdminLayout
+@rendermode InteractiveServer
 @attribute [Authorize(Roles = "Admin")]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
-<PageTitle>Testimonials - Fargo Spa and Wellness</PageTitle>
+<PageTitle>Testimonial Moderation - Fargo Spa and Wellness</PageTitle>
 
 <div class="admin-page-header">
-    <h1>Testimonials</h1>
-    <p>Approve or reject client reviews.</p>
+    <h1>Testimonial Moderation</h1>
+    <p>Review and approve client feedback</p>
 </div>
 
-<div class="admin-coming-soon">
-    <p>Coming soon &mdash; tracked in <strong>FSW-25</strong>.</p>
-</div>
+@if (testimonials is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="admin-tab-row">
+        <button type="button" class="admin-tab @(activeTab == "Pending" ? "active" : "")" @onclick='() => SetTab("Pending")'>
+            <span>Pending</span>
+            <span class="admin-tab-count">@testimonials.Count(t => t.ApprovalStatus == "Pending")</span>
+        </button>
+        <button type="button" class="admin-tab @(activeTab == "Approved" ? "active" : "")" @onclick='() => SetTab("Approved")'>
+            <span>Approved</span>
+            <span class="admin-tab-count">@testimonials.Count(t => t.ApprovalStatus == "Approved")</span>
+        </button>
+        <button type="button" class="admin-tab @(activeTab == "Rejected" ? "active" : "")" @onclick='() => SetTab("Rejected")'>
+            <span>Rejected</span>
+            <span class="admin-tab-count">@testimonials.Count(t => t.ApprovalStatus == "Rejected")</span>
+        </button>
+        <button type="button" class="admin-tab @(activeTab == "All" ? "active" : "")" @onclick='() => SetTab("All")'>
+            <span>All</span>
+            <span class="admin-tab-count">@testimonials.Count</span>
+        </button>
+    </div>
+
+    @if (FilteredTestimonials.Count == 0)
+    {
+        <div class="admin-coming-soon">
+            <p>No reviews in this view.</p>
+        </div>
+    }
+    else
+    {
+        @foreach (var t in FilteredTestimonials)
+        {
+            <div class="testimonial-card">
+                <div class="testimonial-card-header">
+                    <div class="testimonial-avatar">@GetInitials(t.Client)</div>
+                    <div class="testimonial-header-text">
+                        <span class="testimonial-name">@(t.Client?.FullName ?? "A Client")</span>
+                        <span class="testimonial-date">@t.CreatedAt.ToString("MMM d, yyyy")</span>
+                    </div>
+                </div>
+                <div class="testimonial-stars">
+                    @for (var i = 1; i <= 5; i++)
+                    {
+                        <span class="testimonial-star @(i <= t.Rating ? "filled" : "empty")">@(i <= t.Rating ? "★" : "☆")</span>
+                    }
+                </div>
+                <p class="testimonial-quote"><span class="testimonial-quote-icon">&#10077;</span>"@t.ReviewText"</p>
+                <div class="testimonial-card-footer">
+                    <span class="admin-status-badge @StatusCssClass(t.ApprovalStatus)">@t.ApprovalStatus</span>
+                    <div class="testimonial-actions">
+                        <button type="button" class="btn-approve" @onclick='() => UpdateStatusAsync(t, "Approved")'>✓ Approve</button>
+                        <button type="button" class="btn-reject" @onclick='() => UpdateStatusAsync(t, "Rejected")'>✕ Reject</button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+}
+
+@code {
+    private List<Testimonial>? testimonials;
+    private string activeTab = "Pending";
+
+    private List<Testimonial> FilteredTestimonials => (testimonials ?? new())
+        .Where(t => activeTab == "All" || t.ApprovalStatus == activeTab)
+        .OrderByDescending(t => t.CreatedAt)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTestimonialsAsync();
+    }
+
+    private async Task LoadTestimonialsAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        testimonials = await db.Testimonials
+            .Include(t => t.Client)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
+    private void SetTab(string tab)
+    {
+        activeTab = tab;
+    }
+
+    private async Task UpdateStatusAsync(Testimonial testimonial, string newStatus)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbTestimonial = await db.Testimonials.FindAsync(testimonial.Id);
+        if (dbTestimonial is not null)
+        {
+            dbTestimonial.ApprovalStatus = newStatus;
+            await db.SaveChangesAsync();
+        }
+
+        // Reload so counts and the current tab's filtered list both reflect
+        // the change immediately - this is what makes an approved/rejected
+        // card actually leave the Pending tab's view.
+        await LoadTestimonialsAsync();
+    }
+
+    private static string StatusCssClass(string status) => status switch
+    {
+        "Approved" => "approved",
+        "Rejected" => "rejected",
+        _ => "pending",
+    };
+
+    private static string GetInitials(User? client)
+    {
+        if (client is null)
+        {
+            return "?";
+        }
+
+        var first = client.FirstName.Length > 0 ? client.FirstName[0] : '?';
+        var last = client.LastName.Length > 0 ? client.LastName[0] : '?';
+        return $"{char.ToUpperInvariant(first)}{char.ToUpperInvariant(last)}";
+    }
+}
