@@ -23,7 +23,7 @@
                 <div class="alert alert-danger" role="alert">Incorrect email or password. Please try again.</div>
             }
 
-            <form method="post" action="/account/login">
+            <form method="post" action="/account/login" data-enhance="false">
                 @if (!string.IsNullOrEmpty(ReturnUrl))
                 {
                     <input type="hidden" name="returnUrl" value="@ReturnUrl" />
