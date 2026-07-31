@@ -60,8 +60,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ProviderShift>()
-            .HasIndex(ps => new { ps.ProviderId, ps.DayOfWeek })
-            .IsUnique();
+            .HasIndex(ps => new { ps.ProviderId, ps.DayOfWeek });
 
         modelBuilder.Entity<ProviderShift>()
             .HasOne(ps => ps.Provider)
