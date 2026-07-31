@@ -39,11 +39,11 @@
                         <div class="spa-account-menu">
                             @if (context.User.IsInRole("Admin") || context.User.IsInRole("Provider"))
                             {
-                                <span class="spa-account-name">@context.User.Identity?.Name</span>
+                                <span class="spa-account-name">Hi, @FirstName(context.User.Identity?.Name)</span>
                             }
                             else
                             {
-                                <NavLink href="profile" class="spa-account-name">@context.User.Identity?.Name</NavLink>
+                                <NavLink href="dashboard" class="spa-account-name">Hi, @FirstName(context.User.Identity?.Name)</NavLink>
                             }
                             <form method="post" action="/account/logout">
                                 <button type="submit" class="btn btn-spa-secondary btn-sm">Sign out</button>
@@ -62,3 +62,8 @@
         <label for="nav-toggle" class="spa-toggle" aria-label="Toggle navigation">&#9776;</label>
     </div>
 </header>
+
+@code {
+    private static string FirstName(string? fullName) =>
+        string.IsNullOrWhiteSpace(fullName) ? "there" : fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+}

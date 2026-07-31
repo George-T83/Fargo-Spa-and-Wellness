@@ -406,7 +406,7 @@ a.service-card:hover {
 }
 
 .content {
-    padding-top: 1.1rem;
+    padding-top: 0;
 }
 
 h1:focus {
