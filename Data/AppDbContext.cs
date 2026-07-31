@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<User> Users => Set<User>();
     public DbSet<Testimonial> Testimonials => Set<Testimonial>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
+    public DbSet<ServiceNote> ServiceNotes => Set<ServiceNote>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +33,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(a => a.Provider)
             .WithMany()
             .HasForeignKey(a => a.ProviderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ServiceNote>()
+            .HasOne(n => n.Client)
+            .WithMany()
+            .HasForeignKey(n => n.ClientId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ServiceNote>()
+            .HasOne(n => n.Author)
+            .WithMany()
+            .HasForeignKey(n => n.AuthorId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Service>().HasData(
