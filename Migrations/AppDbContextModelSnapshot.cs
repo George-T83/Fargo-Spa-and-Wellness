@@ -359,6 +359,9 @@ namespace Family_and_Spa_Wellness.Migrations
                     b.Navigation("Provider");
                 });
 
+                    b.Navigation("Service");
+                });
+
             modelBuilder.Entity("Family_and_Spa_Wellness.Models.Testimonial", b =>
                 {
                     b.HasOne("Family_and_Spa_Wellness.Models.User", "Client")
