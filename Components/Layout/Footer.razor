@@ -1,0 +1,55 @@
+<footer class="spa-footer">
+    <div class="container spa-footer-inner">
+        <div class="spa-footer-top">
+            <div class="spa-footer-brand">
+                <div class="spa-footer-brand-row">
+                    <span class="spa-footer-brand-icon">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 5a3 3 0 1 1 3 3m-3-3a3 3 0 1 0-3 3m3-3v1M9 8a3 3 0 1 0 3 3M9 8h1m5 0a3 3 0 1 1-3 3m3-3h-1m-2 3v-1" />
+                            <path d="M12 8v13" />
+                            <path d="M12 21c0-2.5-2-2.5-2-5" />
+                            <path d="M12 21c0-2.5 2-2.5 2-5" />
+                        </svg>
+                    </span>
+                    <span class="spa-footer-brand-text">
+                        <span class="spa-footer-brand-name">Fargo Spa</span>
+                        <span class="spa-footer-brand-subtag">Wellness &amp; Beauty</span>
+                    </span>
+                </div>
+                <p class="spa-footer-tagline">A calm space for rest, recovery, and renewal in the heart of Fargo.</p>
+            </div>
+
+            <div class="spa-footer-col">
+                <p class="spa-footer-heading">Company</p>
+                <NavLink class="spa-footer-link" href="about">About Us</NavLink>
+                <NavLink class="spa-footer-link" href="services">Treatments</NavLink>
+                <NavLink class="spa-footer-link" href="contact">Contact</NavLink>
+            </div>
+
+            <div class="spa-footer-col">
+                <p class="spa-footer-heading">Policies</p>
+                <NavLink class="spa-footer-link" href="policies">Booking &amp; Cancellation Policy</NavLink>
+                <NavLink class="spa-footer-link" href="contact">Get in Touch</NavLink>
+            </div>
+
+            <div class="spa-footer-col">
+                <p class="spa-footer-heading">Account</p>
+                <AuthorizeView>
+                    <Authorized>
+                        <NavLink class="spa-footer-link" href="profile">My Profile</NavLink>
+                    </Authorized>
+                    <NotAuthorized>
+                        <NavLink class="spa-footer-link" href="login">Sign In</NavLink>
+                        <NavLink class="spa-footer-link" href="register">Register</NavLink>
+                    </NotAuthorized>
+                </AuthorizeView>
+                <NavLink class="spa-footer-link" href="book">Book a Visit</NavLink>
+            </div>
+        </div>
+
+        <div class="spa-footer-bottom">
+            <p>&copy; @DateTime.Now.Year Fargo Spa and Wellness. All rights reserved.</p>
+            <p class="spa-footer-note">Built for CSCI 213 &mdash; a class project, not a real business.</p>
+        </div>
+    </div>
+</footer>

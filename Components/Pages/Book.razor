@@ -576,6 +576,20 @@
             $"<p>You're booked for <strong>{service.Name}</strong> on {start:dddd, MMMM d} at {start:h:mm tt}.</p>" +
             $"<p>We look forward to seeing you.</p>");
 
+        if (selectedProviderId != 0)
+        {
+            var provider = providers.FirstOrDefault(p => p.Id == selectedProviderId);
+            if (provider is not null)
+            {
+                await EmailSender.SendAsync(
+                    provider.Email,
+                    "New appointment assigned to you - Fargo Spa and Wellness",
+                    $"<p>Hi {provider.FirstName},</p>" +
+                    $"<p>You've been assigned a new appointment: <strong>{service.Name}</strong> " +
+                    $"with {client.FirstName} {client.LastName} on {start:dddd, MMMM d} from {start:h:mm tt} to {end:h:mm tt}.</p>");
+            }
+        }
+
         confirmedService = service;
         confirmedStart = start;
         submitted = true;

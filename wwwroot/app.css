@@ -606,6 +606,90 @@ h1:focus {
     text-decoration: none;
 }
 
+.contact-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.2fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .contact-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.contact-info-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.contact-card-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--spa-ink-800);
+    margin-bottom: 0.25rem;
+}
+
+.contact-card-subtitle {
+    font-size: 0.85rem;
+    color: var(--spa-ink-400);
+    margin-bottom: 1.5rem;
+}
+
+.contact-info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin-top: 1.25rem;
+}
+
+.contact-info-row:first-of-type {
+    margin-top: 1rem;
+}
+
+.contact-info-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.65rem;
+    background-color: var(--spa-sage-50);
+    color: var(--spa-sage-600);
+    flex-shrink: 0;
+}
+
+.contact-info-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--spa-ink-400);
+    margin-bottom: 0.15rem;
+}
+
+.contact-info-text {
+    font-size: 0.9rem;
+    color: var(--spa-ink-700);
+    line-height: 1.4;
+}
+
+.contact-map-wrap {
+    border-radius: 0.85rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(28, 29, 34, 0.06), 0 8px 24px -8px rgba(28, 29, 34, 0.1);
+}
+
+.contact-map {
+    display: block;
+    width: 100%;
+    height: 280px;
+    border: 0;
+}
+
 .auth-footer-link a:hover {
     color: var(--spa-sage-700);
 }
@@ -1826,4 +1910,203 @@ h1:focus {
     .dashboard-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* Footer */
+.spa-footer {
+    background-color: var(--spa-ink-900);
+    color: var(--spa-sand-200);
+    margin-top: 3rem;
+}
+
+.spa-footer-inner {
+    padding: 3rem 1.5rem 1.75rem;
+}
+
+.spa-footer-top {
+    display: grid;
+    grid-template-columns: 1.4fr repeat(3, 1fr);
+    gap: 2rem;
+}
+
+@media (max-width: 767.98px) {
+    .spa-footer-top {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.spa-footer-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+
+.spa-footer-brand-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.6rem;
+    background: linear-gradient(135deg, #638a54, #4d6e41);
+}
+
+.spa-footer-brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    line-height: 1.1;
+}
+
+.spa-footer-brand-name {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #fff;
+}
+
+.spa-footer-brand-subtag {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--spa-sand-300);
+}
+
+.spa-footer-tagline {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--spa-sand-300);
+    max-width: 22rem;
+}
+
+.spa-footer-heading {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--spa-sand-300);
+    margin-bottom: 0.85rem;
+}
+
+.spa-footer-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.spa-footer-link {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--spa-sand-200);
+    text-decoration: none;
+    margin-bottom: 0.6rem;
+}
+
+.spa-footer-link:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.spa-footer-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.78rem;
+    color: var(--spa-sand-300);
+}
+
+.spa-footer-note {
+    color: var(--spa-ink-400);
+}
+
+/* About page */
+.about-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.about-story-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.about-body-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--spa-ink-600);
+}
+
+.about-team-heading {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--spa-ink-800);
+    margin-bottom: 1rem;
+}
+
+.about-team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.about-team-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.about-team-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--spa-ink-800);
+    margin: 0;
+}
+
+.about-team-role {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--spa-sage-600);
+    margin: 0 0 0.5rem;
+}
+
+/* Policies page */
+.policy-card {
+    max-width: 46rem;
+}
+
+.policy-row {
+    padding: 1.1rem 0;
+    border-bottom: 1px solid var(--spa-sand-100);
+}
+
+.policy-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.policy-row:first-child {
+    padding-top: 0;
+}
+
+.policy-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--spa-ink-800);
+    margin-bottom: 0.35rem;
+}
+
+/* Profile page */
+.profile-container {
+    max-width: 28rem;
 }
