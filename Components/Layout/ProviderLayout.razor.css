@@ -36,6 +36,7 @@
 .provider-brand-text {
     display: flex;
     flex-direction: column;
+    gap: 0.2rem;
     line-height: 1.15;
 }
 

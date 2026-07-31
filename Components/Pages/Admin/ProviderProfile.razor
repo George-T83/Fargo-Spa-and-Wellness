@@ -1,0 +1,15 @@
+@page "/admin/my-profile"
+@layout ProviderLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Provider")]
+
+<PageTitle>My Profile - Fargo Spa and Wellness</PageTitle>
+
+<div class="admin-page-header">
+    <h1>My Profile</h1>
+    <p>View and update your account details.</p>
+</div>
+
+<div class="profile-container">
+    <ProfileForm />
+</div>
