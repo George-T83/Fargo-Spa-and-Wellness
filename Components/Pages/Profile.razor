@@ -1,11 +1,13 @@
 @page "/profile"
 @rendermode InteractiveServer
 @attribute [Authorize]
+@inject IJSRuntime JsRuntime
 
 <PageTitle>My Profile - Fargo Spa and Wellness</PageTitle>
 
 <section class="catalog-header">
     <div class="container">
+        <button type="button" class="profile-back-link" @onclick="GoBack">&larr; Back</button>
         <p class="eyebrow">Settings</p>
         <h1 class="section-title">My Profile</h1>
         <p class="catalog-subtitle">View and update your account details.</p>
@@ -17,3 +19,10 @@
         <ProfileForm />
     </div>
 </section>
+
+@code {
+    private async Task GoBack()
+    {
+        await JsRuntime.InvokeVoidAsync("history.back");
+    }
+}

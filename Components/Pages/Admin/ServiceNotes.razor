@@ -1,4 +1,5 @@
 @page "/admin/notes"
+@layout EmptyLayout
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = "Provider,Admin")]
 @using Family_and_Spa_Wellness.Data
@@ -6,6 +7,7 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IJSRuntime JsRuntime
 
 <PageTitle>Client Service Notes - Fargo Spa and Wellness</PageTitle>
 
@@ -40,7 +42,7 @@ else
     @if (showForm)
     {
         <div class="admin-form-card">
-            <h3>New Note</h3>
+            <h3>@(editingNoteId is null ? "New Note" : "Edit Note")</h3>
 
             @if (validationErrors.Count > 0)
             {
@@ -102,7 +104,11 @@ else
                     </div>
                     <p class="note-text">@note.NoteText</p>
                     <div class="note-card-footer">
-                        @(note.Author?.FullName ?? "Unknown staff") &middot; @note.CreatedAt.ToString("MMM d, yyyy")
+                        <span>@(note.Author?.FullName ?? "Unknown staff") &middot; @note.CreatedAt.ToString("MMM d, yyyy")</span>
+                        <div class="note-card-actions">
+                            <button type="button" class="btn btn-spa-secondary btn-sm" @onclick="() => StartEdit(note)">Edit</button>
+                            <button type="button" class="btn-reject btn-sm" @onclick="() => ConfirmAndDeleteAsync(note)">Delete</button>
+                        </div>
                     </div>
                 </div>
             }
@@ -125,6 +131,7 @@ else
     private string? statusMessage;
 
     private bool showForm;
+    private int? editingNoteId;
     private int newClientId;
     private string newNoteType = "General";
     private string newNoteText = string.Empty;
@@ -198,6 +205,7 @@ else
     private void StartCreate()
     {
         showForm = true;
+        editingNoteId = null;
         newClientId = 0;
         newNoteType = "General";
         newNoteText = string.Empty;
@@ -205,9 +213,21 @@ else
         statusMessage = null;
     }
 
+    private void StartEdit(ServiceNote note)
+    {
+        showForm = true;
+        editingNoteId = note.Id;
+        newClientId = note.ClientId;
+        newNoteType = note.NoteType;
+        newNoteText = note.NoteText;
+        validationErrors.Clear();
+        statusMessage = null;
+    }
+
     private void CancelCreate()
     {
         showForm = false;
+        editingNoteId = null;
         validationErrors.Clear();
     }
 
@@ -228,17 +248,54 @@ else
         }
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        db.ServiceNotes.Add(new ServiceNote
+
+        if (editingNoteId is null)
         {
-            ClientId = newClientId,
-            AuthorId = authorId,
-            NoteType = newNoteType,
-            NoteText = newNoteText,
-        });
+            db.ServiceNotes.Add(new ServiceNote
+            {
+                ClientId = newClientId,
+                AuthorId = authorId,
+                NoteType = newNoteType,
+                NoteText = newNoteText,
+            });
+            statusMessage = "Note added.";
+        }
+        else
+        {
+            var dbNote = await db.ServiceNotes.FindAsync(editingNoteId.Value);
+            if (dbNote is not null)
+            {
+                dbNote.ClientId = newClientId;
+                dbNote.NoteType = newNoteType;
+                dbNote.NoteText = newNoteText;
+                statusMessage = "Note updated.";
+            }
+        }
+
         await db.SaveChangesAsync();
 
-        statusMessage = "Note added.";
         showForm = false;
+        editingNoteId = null;
+        await LoadNotesAsync();
+    }
+
+    private async Task ConfirmAndDeleteAsync(ServiceNote note)
+    {
+        var confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Delete this note? This can't be undone.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbNote = await db.ServiceNotes.FindAsync(note.Id);
+        if (dbNote is not null)
+        {
+            db.ServiceNotes.Remove(dbNote);
+            await db.SaveChangesAsync();
+            statusMessage = "Note deleted.";
+        }
+
         await LoadNotesAsync();
     }
 }

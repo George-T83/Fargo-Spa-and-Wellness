@@ -1621,10 +1621,20 @@ h1:focus {
 }
 
 .note-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
     font-size: 0.78rem;
     color: var(--spa-ink-400);
     padding-top: 0.6rem;
     border-top: 1px solid var(--spa-sand-100);
+}
+
+.note-card-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
 }
 
 .admin-tab-row {
@@ -2109,4 +2119,20 @@ h1:focus {
 /* Profile page */
 .profile-container {
     max-width: 28rem;
+}
+
+.profile-back-link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--spa-sage-600);
+    cursor: pointer;
+}
+
+.profile-back-link:hover {
+    color: var(--spa-sage-700);
+    text-decoration: underline;
 }
