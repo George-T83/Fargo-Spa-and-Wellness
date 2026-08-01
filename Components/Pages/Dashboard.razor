@@ -38,7 +38,7 @@
                     </div>
                     <div class="dashboard-profile-row">
                         <span class="dashboard-profile-label">Phone</span>
-                        <span>@user.Phone</span>
+                        <span>@FormatPhone(user.Phone)</span>
                     </div>
                     <div class="dashboard-profile-row">
                         <span class="dashboard-profile-label">Upcoming</span>
@@ -95,6 +95,7 @@
                         }
                         else
                         {
+                            <a href="/review" class="btn btn-spa-secondary btn-sm mb-3">Leave a Review</a>
                             @foreach (var a in past)
                             {
                                 <div class="dashboard-appt-row past">
@@ -154,6 +155,20 @@
 
         upcoming = appointments.Where(a => a.StartTime >= DateTime.Now).ToList();
         past = appointments.Where(a => a.StartTime < DateTime.Now).OrderByDescending(a => a.StartTime).ToList();
+    }
+
+    private static string FormatPhone(string phone)
+    {
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+
+        if (digits.Length == 11 && digits[0] == '1')
+        {
+            digits = digits[1..];
+        }
+
+        return digits.Length == 10
+            ? $"{digits[..3]}-{digits.Substring(3, 3)}-{digits[6..]}"
+            : phone;
     }
 
     private async Task ConfirmAndCancelAsync(Appointment appt)

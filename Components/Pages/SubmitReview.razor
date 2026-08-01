@@ -1,0 +1,171 @@
+@page "/review"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Options
+@using System.Security.Claims
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IEmailSender EmailSender
+@inject IOptions<SmtpOptions> SmtpConfig
+
+<PageTitle>Leave a Review - Fargo Spa and Wellness</PageTitle>
+
+<section class="catalog-header">
+    <div class="container">
+        <p class="eyebrow">Client Portal</p>
+        <h1 class="section-title">Share Your Experience</h1>
+        <p class="catalog-subtitle">Your review helps other guests discover Fargo Spa and Wellness.</p>
+    </div>
+</section>
+
+<section class="services-section">
+    <div class="container profile-container">
+        @if (loading)
+        {
+            <p>Loading...</p>
+        }
+        else if (!hasPastAppointment)
+        {
+            <div class="auth-card">
+                <div class="alert alert-danger" role="alert">
+                    Reviews can only be left after you've completed an appointment with us.
+                </div>
+                <a href="/dashboard" class="btn btn-spa-secondary w-100 mt-3">Back to Dashboard</a>
+            </div>
+        }
+        else if (submitted)
+        {
+            <div class="auth-card">
+                <div class="alert alert-success mb-0" role="alert">
+                    Thank you! Your review has been submitted and will appear once it's approved.
+                </div>
+                <a href="/dashboard" class="btn btn-spa-secondary w-100 mt-3">Back to Dashboard</a>
+            </div>
+        }
+        else
+        {
+            <div class="auth-card">
+                <EditForm Model="model" OnValidSubmit="HandleSubmitAsync">
+                    <DataAnnotationsValidator />
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">@errorMessage</div>
+                    }
+
+                    <div class="auth-field">
+                        <label class="auth-label">Your rating</label>
+                        <div class="review-star-picker">
+                            @for (var i = 1; i <= 5; i++)
+                            {
+                                var value = i;
+                                <button type="button"
+                                        class="testimonial-star review-star-btn @(value <= model.Rating ? "filled" : "empty")"
+                                        @onclick="() => model.Rating = value">
+                                    @(value <= model.Rating ? "★" : "☆")
+                                </button>
+                            }
+                        </div>
+                        @if (showRatingError)
+                        {
+                            <span class="auth-error">Please select a rating.</span>
+                        }
+                    </div>
+
+                    <div class="auth-field">
+                        <label class="auth-label">Your review</label>
+                        <InputTextArea class="auth-input" rows="5" placeholder="Tell us about your visit..." @bind-Value="model.ReviewText" />
+                        <ValidationMessage For="() => model.ReviewText" class="auth-error" />
+                    </div>
+
+                    <button type="submit" class="btn btn-spa-primary w-100">Submit Review</button>
+                </EditForm>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private readonly ReviewModel model = new();
+    private bool loading = true;
+    private bool hasPastAppointment;
+    private bool submitted;
+    private bool showRatingError;
+    private string? errorMessage;
+    private int currentUserId;
+    private string clientFirstName = "A client";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null)
+        {
+            loading = false;
+            return;
+        }
+
+        var authState = await AuthStateTask;
+        var idClaim = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idClaim, out currentUserId))
+        {
+            loading = false;
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        hasPastAppointment = await db.Appointments
+            .AnyAsync(a => a.ClientId == currentUserId && a.StartTime < DateTime.Now);
+
+        var user = await db.Users.FindAsync(currentUserId);
+        if (user is not null)
+        {
+            clientFirstName = user.FirstName;
+        }
+
+        loading = false;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        errorMessage = null;
+        showRatingError = model.Rating == 0;
+        if (showRatingError)
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        db.Testimonials.Add(new Testimonial
+        {
+            ClientId = currentUserId,
+            Rating = model.Rating,
+            ReviewText = model.ReviewText.Trim(),
+        });
+
+        await db.SaveChangesAsync();
+
+        var adminEmail = SmtpConfig.Value.FromEmail;
+        var stars = new string('★', model.Rating) + new string('☆', 5 - model.Rating);
+        await EmailSender.SendAsync(
+            adminEmail,
+            "New review submitted - Fargo Spa and Wellness",
+            $"<p><strong>{System.Net.WebUtility.HtmlEncode(clientFirstName)}</strong> submitted a new review ({stars}) that's awaiting moderation.</p>" +
+            $"<p>{System.Net.WebUtility.HtmlEncode(model.ReviewText.Trim())}</p>");
+
+        submitted = true;
+    }
+
+    private class ReviewModel
+    {
+        public int Rating { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Please write a few words about your visit")]
+        [System.ComponentModel.DataAnnotations.StringLength(1000, MinimumLength = 10, ErrorMessage = "Reviews should be between 10 and 1000 characters")]
+        public string ReviewText { get; set; } = string.Empty;
+    }
+}

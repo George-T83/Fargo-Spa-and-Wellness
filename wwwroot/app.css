@@ -1917,6 +1917,20 @@ h1:focus {
     margin: 0;
 }
 
+.review-star-picker {
+    display: flex;
+    gap: 0.25rem;
+    font-size: 1.75rem;
+}
+
+.review-star-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
 .dashboard-appt-time {
     font-size: 0.85rem;
     color: var(--spa-ink-400);
