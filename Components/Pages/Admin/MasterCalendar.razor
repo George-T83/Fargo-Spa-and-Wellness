@@ -4,10 +4,12 @@
 @attribute [Authorize(Roles = "Admin")]
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IJSRuntime JsRuntime
-@inject Family_and_Spa_Wellness.Services.IEmailSender EmailSender
+@inject AppointmentNotificationService NotificationService
+@inject IEmailSender EmailSender
 
 <PageTitle>Master Calendar - Fargo Spa and Wellness</PageTitle>
 
@@ -341,6 +343,8 @@ else
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
         var previousProviderId = (int?)null;
+        DateTime? previousStart = null;
+        DateTime? previousEnd = null;
         var isNewBooking = editingAppointment.Id == 0;
         if (isNewBooking)
         {
@@ -360,6 +364,8 @@ else
             if (dbAppt is not null)
             {
                 previousProviderId = dbAppt.ProviderId;
+                previousStart = dbAppt.StartTime;
+                previousEnd = dbAppt.EndTime;
                 dbAppt.ClientId = editingAppointment.ClientId;
                 dbAppt.ServiceId = editingAppointment.ServiceId;
                 dbAppt.ProviderId = providerId;
@@ -372,22 +378,30 @@ else
         await db.SaveChangesAsync();
 
         // Keep every provider touched by this save in the loop: a newly (or
-        // re-)assigned provider gets an "assigned" email, a provider that's
-        // still on the booking after an edit gets an "updated" email, and a
-        // provider removed from the booking (reassigned away, or unassigned
+        // re-)assigned provider gets an "assigned" email, and a provider
+        // removed from the booking (reassigned away, or unassigned
         // entirely) gets a "no longer assigned" email.
         if (providerId is not null && providerId != previousProviderId)
         {
             await NotifyProviderAsync(providerId.Value, editingAppointment.ClientId, editingAppointment.ServiceId, editingAppointment.StartTime, editingAppointment.EndTime, isNewBooking ? "assigned" : "reassigned");
         }
-        else if (providerId is not null && providerId == previousProviderId && !isNewBooking)
-        {
-            await NotifyProviderAsync(providerId.Value, editingAppointment.ClientId, editingAppointment.ServiceId, editingAppointment.StartTime, editingAppointment.EndTime, "updated");
-        }
 
         if (previousProviderId is not null && previousProviderId != providerId)
         {
             await NotifyProviderAsync(previousProviderId.Value, editingAppointment.ClientId, editingAppointment.ServiceId, editingAppointment.StartTime, editingAppointment.EndTime, "removed");
+        }
+
+        // A date/time change (as opposed to just a provider reassignment) is
+        // the actual "reschedule" case FSW-16 cares about - notify both the
+        // client and the still-assigned provider, admin-framed (no admin
+        // identity in the email body/sender - see AppointmentNotificationService).
+        if (!isNewBooking && previousStart is not null && previousEnd is not null &&
+            (previousStart != editingAppointment.StartTime || previousEnd != editingAppointment.EndTime))
+        {
+            var client = clients.FirstOrDefault(c => c.Id == editingAppointment.ClientId);
+            var provider = providerId is not null ? providers.FirstOrDefault(p => p.Id == providerId) : null;
+            var service = services.FirstOrDefault(s => s.Id == editingAppointment.ServiceId);
+            await NotificationService.NotifyRescheduledAsync(client, provider, service, previousStart.Value, previousEnd.Value, editingAppointment.StartTime, editingAppointment.EndTime, ChangeActor.Admin);
         }
 
         editingAppointment = null;
@@ -441,12 +455,17 @@ else
         }
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        var dbAppt = await db.Appointments.FindAsync(editingAppointment.Id);
+        var dbAppt = await db.Appointments
+            .Include(a => a.Client)
+            .Include(a => a.Provider)
+            .Include(a => a.Service)
+            .FirstOrDefaultAsync(a => a.Id == editingAppointment.Id);
+
         if (dbAppt is not null)
         {
-            var cancelledProviderId = dbAppt.ProviderId;
-            var cancelledClientId = dbAppt.ClientId;
-            var cancelledServiceId = dbAppt.ServiceId;
+            var cancelledClient = dbAppt.Client;
+            var cancelledProvider = dbAppt.Provider;
+            var cancelledService = dbAppt.Service;
             var cancelledStart = dbAppt.StartTime;
             var cancelledEnd = dbAppt.EndTime;
 
@@ -454,10 +473,7 @@ else
             await db.SaveChangesAsync();
             statusMessage = "Booking cancelled.";
 
-            if (cancelledProviderId is not null)
-            {
-                await NotifyProviderAsync(cancelledProviderId.Value, cancelledClientId, cancelledServiceId, cancelledStart, cancelledEnd, "cancelled");
-            }
+            await NotificationService.NotifyCancelledAsync(cancelledClient, cancelledProvider, cancelledService, cancelledStart, cancelledEnd, ChangeActor.Admin);
         }
 
         editingAppointment = null;

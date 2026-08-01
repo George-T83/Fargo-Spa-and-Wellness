@@ -1899,6 +1899,18 @@ h1:focus {
     opacity: 0.7;
 }
 
+.dashboard-appt-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.dashboard-appt-policy-note {
+    font-size: 0.78rem;
+    color: var(--spa-ink-400);
+    margin: 0.4rem 0 0;
+}
+
 .dashboard-appt-service {
     font-weight: 600;
     color: var(--spa-ink-800);

@@ -1,0 +1,353 @@
+@page "/reschedule/{Id:int}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject AppointmentNotificationService NotificationService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Reschedule Appointment - Fargo Spa and Wellness</PageTitle>
+
+<section class="catalog-header">
+    <div class="container">
+        <p class="eyebrow">Appointment</p>
+        <h1 class="section-title">Reschedule Appointment</h1>
+        <p class="catalog-subtitle">Pick a new date and time. Your treatment and provider stay the same.</p>
+    </div>
+</section>
+
+<section class="services-section">
+    <div class="container">
+        <div class="booking-shell">
+            @if (loading)
+            {
+                <p>Loading...</p>
+            }
+            else if (notFound)
+            {
+                <div class="auth-card">
+                    <div class="alert alert-danger" role="alert">That appointment could not be found, or you don't have permission to change it.</div>
+                    <a href="/dashboard" class="btn btn-spa-secondary mt-3">Back to Dashboard</a>
+                </div>
+            }
+            else if (submitted)
+            {
+                <div class="auth-card">
+                    <div class="alert alert-success mb-0" role="alert">
+                        Rescheduled! @appointment!.Service?.Name is now on @appointment.StartTime.ToString("dddd, MMMM d") at @appointment.StartTime.ToString("h:mm tt").
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="auth-card">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">@errorMessage</div>
+                    }
+
+                    <p class="booking-summary-line">
+                        @appointment!.Service?.Name &middot; currently @appointment.StartTime.ToString("ddd, MMM d") at @appointment.StartTime.ToString("h:mm tt")
+                    </p>
+
+                    @if (blockedByPolicy)
+                    {
+                        <div class="alert alert-danger">
+                            This appointment starts in less than 24 hours, so it can no longer be rescheduled online. Please contact us directly.
+                        </div>
+                    }
+                    else
+                    {
+                        <h2 class="booking-card-title">Pick a new date &amp; time</h2>
+                        <p class="booking-card-subtitle">Business hours are 9:00 AM to 5:00 PM.</p>
+
+                        <div class="booking-calendar-nav">
+                            <button type="button" class="booking-calendar-nav-btn" disabled="@IsCurrentWeek" @onclick="GoToPreviousWeek">&lsaquo;</button>
+                            <span class="booking-calendar-nav-title">@weekStart.ToString("MMMM yyyy")</span>
+                            <button type="button" class="booking-calendar-nav-btn" @onclick="GoToNextWeek">&rsaquo;</button>
+                        </div>
+
+                        <div class="booking-week">
+                            @foreach (var day in WeekDays())
+                            {
+                                <button type="button" class="booking-day @(selectedDate.Date == day.Date ? "selected" : "")"
+                                        disabled="@(day.Date < DateTime.Today)"
+                                        @onclick="() => SelectDate(day)">
+                                    <span class="booking-day-label">@day.ToString("ddd").ToUpperInvariant()</span>
+                                    <span class="booking-day-number">@day.Day</span>
+                                </button>
+                            }
+                        </div>
+
+                        @if (loadingSlots)
+                        {
+                            <p class="booking-slots-hint">Checking availability...</p>
+                        }
+                        else if (slots.Count == 0)
+                        {
+                            <p class="booking-slots-hint">No open slots for this date. Try another day.</p>
+                        }
+                        else
+                        {
+                            <div class="booking-slots">
+                                @foreach (var slot in slots)
+                                {
+                                    <button type="button"
+                                            class="booking-slot @(!slot.Available ? "unavailable" : "") @(selectedStart == slot.Start ? "selected" : "")"
+                                            disabled="@(!slot.Available)"
+                                            @onclick="() => SelectSlot(slot)">
+                                        @slot.Start.ToString("h:mm tt")
+                                    </button>
+                                }
+                            </div>
+                        }
+
+                        <div class="booking-actions">
+                            <a href="/dashboard" class="btn btn-spa-secondary">Cancel</a>
+                            <button type="button" class="btn btn-spa-primary" disabled="@(selectedStart is null)" @onclick="ConfirmRescheduleAsync">
+                                Confirm New Time
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private static readonly TimeSpan OpeningTime = TimeSpan.FromHours(9);
+    private static readonly TimeSpan ClosingTime = TimeSpan.FromHours(17);
+    private static readonly TimeSpan SlotInterval = TimeSpan.FromMinutes(30);
+
+    private bool loading = true;
+    private bool notFound;
+    private bool submitted;
+    private bool blockedByPolicy;
+    private string? errorMessage;
+
+    private Appointment? appointment;
+    private ChangeActor actor;
+    private int currentUserId;
+
+    private DateTime weekStart = StartOfWeek(DateTime.Today);
+    private DateTime selectedDate = DateTime.Today;
+    private DateTime? selectedStart;
+    private List<TimeSlot> slots = new();
+    private bool loadingSlots;
+
+    private bool IsCurrentWeek => weekStart.Date <= StartOfWeek(DateTime.Today);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null)
+        {
+            notFound = true;
+            loading = false;
+            return;
+        }
+
+        var authState = await AuthStateTask;
+        var idClaim = authState.User.FindFirst(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idClaim, out currentUserId))
+        {
+            notFound = true;
+            loading = false;
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        appointment = await db.Appointments
+            .Include(a => a.Client)
+            .Include(a => a.Provider)
+            .Include(a => a.Service)
+            .FirstOrDefaultAsync(a => a.Id == Id);
+
+        if (appointment is null)
+        {
+            notFound = true;
+            loading = false;
+            return;
+        }
+
+        var isAdmin = authState.User.IsInRole("Admin");
+        var isOwningClient = appointment.ClientId == currentUserId;
+        var isAssignedProvider = appointment.ProviderId == currentUserId;
+
+        if (isAdmin)
+        {
+            actor = ChangeActor.Admin;
+        }
+        else if (isAssignedProvider)
+        {
+            actor = ChangeActor.Provider;
+        }
+        else if (isOwningClient)
+        {
+            actor = ChangeActor.Client;
+        }
+        else
+        {
+            notFound = true;
+            loading = false;
+            return;
+        }
+
+        // Only the client's own self-service reschedule is bound by the
+        // 24-hour cancellation policy - staff managing the calendar aren't.
+        blockedByPolicy = actor == ChangeActor.Client && appointment.StartTime < DateTime.Now.AddHours(24);
+
+        selectedDate = appointment.StartTime.Date < DateTime.Today ? DateTime.Today : appointment.StartTime.Date;
+        weekStart = StartOfWeek(selectedDate);
+        loading = false;
+
+        if (!blockedByPolicy)
+        {
+            await LoadSlotsAsync();
+        }
+    }
+
+    private static DateTime StartOfWeek(DateTime date) => date.Date.AddDays(-(int)date.DayOfWeek);
+
+    private IEnumerable<DateTime> WeekDays()
+    {
+        for (var i = 0; i < 7; i++)
+        {
+            yield return weekStart.AddDays(i);
+        }
+    }
+
+    private async Task GoToPreviousWeek()
+    {
+        if (IsCurrentWeek) return;
+        weekStart = weekStart.AddDays(-7);
+        await Task.CompletedTask;
+    }
+
+    private async Task GoToNextWeek()
+    {
+        weekStart = weekStart.AddDays(7);
+        await Task.CompletedTask;
+    }
+
+    private async Task SelectDate(DateTime date)
+    {
+        if (date.Date < DateTime.Today) return;
+        selectedDate = date.Date;
+        await LoadSlotsAsync();
+    }
+
+    private void SelectSlot(TimeSlot slot)
+    {
+        if (!slot.Available) return;
+        selectedStart = slot.Start;
+    }
+
+    private async Task LoadSlotsAsync()
+    {
+        if (appointment?.Service is null)
+        {
+            return;
+        }
+
+        slots = new List<TimeSlot>();
+        selectedStart = null;
+        loadingSlots = true;
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dayStart = selectedDate.Date;
+        var dayEnd = dayStart.AddDays(1);
+
+        var existingQuery = db.Appointments
+            .Where(a => a.Id != appointment.Id && a.StartTime < dayEnd && a.EndTime > dayStart);
+        if (appointment.ProviderId is not null)
+        {
+            existingQuery = existingQuery.Where(a => a.ProviderId == appointment.ProviderId);
+        }
+
+        var existing = await existingQuery.Select(a => new { a.StartTime, a.EndTime }).ToListAsync();
+
+        var duration = TimeSpan.FromMinutes(appointment.Service.DurationMinutes);
+        var isToday = selectedDate.Date == DateTime.Today;
+        var generated = new List<TimeSlot>();
+
+        for (var start = dayStart.Add(OpeningTime); start.Add(duration) <= dayStart.Add(ClosingTime); start = start.Add(SlotInterval))
+        {
+            if (isToday && start <= DateTime.Now)
+            {
+                continue;
+            }
+
+            var end = start.Add(duration);
+            var overlaps = existing.Any(e => e.StartTime < end && start < e.EndTime);
+            generated.Add(new TimeSlot(start, end, !overlaps));
+        }
+
+        slots = generated;
+        loadingSlots = false;
+    }
+
+    private async Task ConfirmRescheduleAsync()
+    {
+        errorMessage = null;
+
+        if (appointment is null || selectedStart is null)
+        {
+            errorMessage = "Please select a time slot.";
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbAppt = await db.Appointments
+            .Include(a => a.Client)
+            .Include(a => a.Provider)
+            .Include(a => a.Service)
+            .FirstOrDefaultAsync(a => a.Id == Id);
+
+        if (dbAppt is null || dbAppt.Service is null)
+        {
+            errorMessage = "This appointment no longer exists.";
+            return;
+        }
+
+        var newStart = selectedStart.Value;
+        var newEnd = newStart.Add(TimeSpan.FromMinutes(dbAppt.Service.DurationMinutes));
+
+        var conflictQuery = db.Appointments.Where(a => a.Id != dbAppt.Id && a.StartTime < newEnd && newStart < a.EndTime);
+        if (dbAppt.ProviderId is not null)
+        {
+            conflictQuery = conflictQuery.Where(a => a.ProviderId == dbAppt.ProviderId);
+        }
+
+        if (await conflictQuery.AnyAsync())
+        {
+            errorMessage = "That time slot was just booked. Please choose another.";
+            await LoadSlotsAsync();
+            return;
+        }
+
+        var oldStart = dbAppt.StartTime;
+        var oldEnd = dbAppt.EndTime;
+
+        dbAppt.StartTime = newStart;
+        dbAppt.EndTime = newEnd;
+        await db.SaveChangesAsync();
+
+        await NotificationService.NotifyRescheduledAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, oldStart, oldEnd, newStart, newEnd, actor);
+
+        appointment = dbAppt;
+        submitted = true;
+    }
+
+    private record TimeSlot(DateTime Start, DateTime End, bool Available);
+}
