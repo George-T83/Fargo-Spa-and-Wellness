@@ -15,7 +15,7 @@ public static class AccountAuthEndpoints
         app.MapPost("/account/login", async (HttpContext http, IDbContextFactory<AppDbContext> dbFactory) =>
         {
             var form = await http.Request.ReadFormAsync();
-            var email = form["email"].ToString().Trim();
+            var email = form["email"].ToString().Trim().ToLowerInvariant();
             var password = form["password"].ToString();
             var returnUrl = form["returnUrl"].ToString();
 
