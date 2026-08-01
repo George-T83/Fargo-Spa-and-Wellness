@@ -4,9 +4,12 @@
 @attribute [Authorize(Roles = "Provider")]
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject AppointmentNotificationService NotificationService
+@inject IJSRuntime JsRuntime
 
 <PageTitle>My Dashboard - Fargo Spa and Wellness</PageTitle>
 
@@ -54,6 +57,11 @@ else
         </div>
     </div>
 
+    @if (statusMessage is not null)
+    {
+        <div class="admin-alert">@statusMessage</div>
+    }
+
     @if (appointments.Count == 0)
     {
         <div class="admin-coming-soon">
@@ -69,6 +77,7 @@ else
                         <th>Client</th>
                         <th>Service</th>
                         <th>Date &amp; Time</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -78,6 +87,13 @@ else
                             <td>@a.Client?.FullName</td>
                             <td>@a.Service?.Name</td>
                             <td>@a.StartTime.ToString("MMM d, yyyy h:mm tt")</td>
+                            <td>
+                                @if (a.StartTime > DateTime.Now)
+                                {
+                                    <a href="/reschedule/@a.Id" class="btn btn-spa-secondary btn-sm">Reschedule</a>
+                                    <button type="button" class="btn-reject btn-sm" @onclick="() => ConfirmAndCancelAsync(a)">Cancel</button>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -96,6 +112,7 @@ else
     private int upcomingCount;
     private int completedCount;
     private bool? isAvailableToday;
+    private string? statusMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,6 +128,18 @@ else
             return;
         }
 
+        await LoadAppointmentsAsync();
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+
+        // No row for today means available by default - see ProviderAvailability.cs.
+        var todayRow = await db.ProviderAvailability
+            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == DateTime.Today);
+        isAvailableToday = todayRow?.IsAvailable ?? true;
+    }
+
+    private async Task LoadAppointmentsAsync()
+    {
         await using var db = await DbContextFactory.CreateDbContextAsync();
         appointments = await db.Appointments
             .Include(a => a.Client)
@@ -125,11 +154,35 @@ else
         todayCount = appointments.Count(a => a.StartTime.Date == DateTime.Today);
         upcomingCount = appointments.Count(a => a.StartTime > DateTime.Now);
         completedCount = appointments.Count(a => a.EndTime < DateTime.Now);
+    }
 
-        // No row for today means available by default - see ProviderAvailability.cs.
-        var todayRow = await db.ProviderAvailability
-            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == DateTime.Today);
-        isAvailableToday = todayRow?.IsAvailable ?? true;
+    private async Task ConfirmAndCancelAsync(Appointment appt)
+    {
+        var confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Cancel this appointment? This can't be undone.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbAppt = await db.Appointments
+            .Include(a => a.Client)
+            .Include(a => a.Provider)
+            .Include(a => a.Service)
+            .FirstOrDefaultAsync(a => a.Id == appt.Id);
+
+        if (dbAppt is null)
+        {
+            return;
+        }
+
+        db.Appointments.Remove(dbAppt);
+        await db.SaveChangesAsync();
+
+        await NotificationService.NotifyCancelledAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, dbAppt.StartTime, dbAppt.EndTime, ChangeActor.Provider);
+
+        statusMessage = "Appointment cancelled.";
+        await LoadAppointmentsAsync();
     }
 
     private async Task ToggleAvailabilityAsync()
@@ -163,6 +216,3 @@ else
         isAvailableToday = newValue;
     }
 }
-<div class="admin-coming-soon">
-    <p>Coming soon &mdash; tracked in <strong>FSW-19</strong>.</p>
-</div>

@@ -43,6 +43,7 @@ builder.Services.Configure<SmtpOptions>(options =>
     options.FromName = builder.Configuration["SMTP_FROM_NAME"] ?? options.FromName;
 });
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<AppointmentNotificationService>();
 
 var app = builder.Build();
 
