@@ -7,7 +7,11 @@
 
 <section class="catalog-header">
     <div class="container">
-        <button type="button" class="profile-back-link" @onclick="GoBack">&larr; Back</button>
+        <AuthorizeView Roles="Admin,Provider">
+            <NotAuthorized>
+                <button type="button" class="profile-back-link" @onclick="GoBack">&larr; Back</button>
+            </NotAuthorized>
+        </AuthorizeView>
         <p class="eyebrow">Settings</p>
         <h1 class="section-title">My Profile</h1>
         <p class="catalog-subtitle">View and update your account details.</p>
