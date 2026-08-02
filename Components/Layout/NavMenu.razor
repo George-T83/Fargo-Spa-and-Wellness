@@ -36,15 +36,12 @@
                         {
                             <NavLink href="/admin/dashboard" class="btn btn-spa-secondary btn-sm">Provider Portal</NavLink>
                         }
+                        else
+                        {
+                            <NavLink href="dashboard" class="btn btn-spa-secondary btn-sm">Client Portal</NavLink>
+                        }
                         <div class="spa-account-menu">
-                            @if (context.User.IsInRole("Admin") || context.User.IsInRole("Provider"))
-                            {
-                                <span class="spa-account-name">Hi, @FirstName(context.User.Identity?.Name)</span>
-                            }
-                            else
-                            {
-                                <NavLink href="dashboard" class="spa-account-name">Hi, @FirstName(context.User.Identity?.Name)</NavLink>
-                            }
+                            <span class="spa-account-name">Hi, @FirstName(context.User.Identity?.Name)</span>
                             <form method="post" action="/account/logout">
                                 <button type="submit" class="btn btn-spa-secondary btn-sm">Sign out</button>
                             </form>

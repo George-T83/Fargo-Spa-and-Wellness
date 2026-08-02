@@ -10,6 +10,7 @@
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IEmailSender EmailSender
 @inject IOptions<SmtpOptions> SmtpConfig
+@inject NavigationManager NavigationManager
 
 <PageTitle>Leave a Review - Fargo Spa and Wellness</PageTitle>
 
@@ -151,11 +152,13 @@
 
         var adminEmail = SmtpConfig.Value.FromEmail;
         var stars = new string('★', model.Rating) + new string('☆', 5 - model.Rating);
+        var reviewsUrl = new Uri(new Uri(NavigationManager.BaseUri), "/admin/testimonials");
         await EmailSender.SendAsync(
             adminEmail,
             "New review submitted - Fargo Spa and Wellness",
             $"<p><strong>{System.Net.WebUtility.HtmlEncode(clientFirstName)}</strong> submitted a new review ({stars}) that's awaiting moderation.</p>" +
-            $"<p>{System.Net.WebUtility.HtmlEncode(model.ReviewText.Trim())}</p>");
+            $"<p>&ldquo;{System.Net.WebUtility.HtmlEncode(model.ReviewText.Trim())}&rdquo;</p>" +
+            $"<p>Find the review under the Reviews section here: <a href=\"{reviewsUrl}\">{reviewsUrl}</a></p>");
 
         submitted = true;
     }

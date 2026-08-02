@@ -209,10 +209,12 @@
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
+        var dashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), "/dashboard");
         await EmailSender.SendAsync(
             user.Email,
             "Welcome to Fargo Spa and Wellness",
-            $"<p>Hi {user.FirstName},</p><p>Your account has been created. We look forward to seeing you at Fargo Spa and Wellness.</p>");
+            $"<p>Hi {user.FirstName},</p><p>Your account has been created. We look forward to seeing you at Fargo Spa and Wellness.</p>" +
+            $"<p>Find your appointments and profile here: <a href=\"{dashboardUrl}\">{dashboardUrl}</a></p>");
 
         if (!string.IsNullOrEmpty(ReturnUrl))
         {

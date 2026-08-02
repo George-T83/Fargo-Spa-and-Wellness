@@ -108,6 +108,35 @@
                             }
                         }
                     </div>
+
+                    <div class="auth-card mt-3">
+                        <h2 class="booking-card-title">My Reviews</h2>
+                        @if (myReviews.Count == 0)
+                        {
+                            <p class="booking-card-subtitle">You haven't left a review yet.</p>
+                        }
+                        else
+                        {
+                            @foreach (var t in myReviews)
+                            {
+                                <div class="dashboard-appt-row">
+                                    <div>
+                                        <div class="testimonial-stars">
+                                            @for (var i = 1; i <= 5; i++)
+                                            {
+                                                <span class="testimonial-star @(i <= t.Rating ? "filled" : "empty")">@(i <= t.Rating ? "★" : "☆")</span>
+                                            }
+                                        </div>
+                                        <p class="dashboard-appt-time mb-0">@t.ReviewText</p>
+                                        @if (t.ApprovalStatus == "Pending")
+                                        {
+                                            <p class="dashboard-appt-policy-note">Pending approval</p>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
                 </div>
             </div>
         }
@@ -121,6 +150,7 @@
     private User? user;
     private List<Appointment> upcoming = new();
     private List<Appointment> past = new();
+    private List<Testimonial> myReviews = new();
     private string? statusMessage;
     private string? errorMessage;
     private int currentUserId;
@@ -155,6 +185,11 @@
 
         upcoming = appointments.Where(a => a.StartTime >= DateTime.Now).ToList();
         past = appointments.Where(a => a.StartTime < DateTime.Now).OrderByDescending(a => a.StartTime).ToList();
+
+        myReviews = await db.Testimonials
+            .Where(t => t.ClientId == currentUserId && t.ApprovalStatus != "Rejected")
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
     }
 
     private static string FormatPhone(string phone)
@@ -167,7 +202,7 @@
         }
 
         return digits.Length == 10
-            ? $"{digits[..3]}-{digits.Substring(3, 3)}-{digits[6..]}"
+            ? $"({digits[..3]})-{digits.Substring(3, 3)}-{digits[6..]}"
             : phone;
     }
 
