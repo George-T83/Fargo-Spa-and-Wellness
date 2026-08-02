@@ -10,6 +10,7 @@
 @inject IJSRuntime JsRuntime
 @inject AppointmentNotificationService NotificationService
 @inject IEmailSender EmailSender
+@inject NavigationManager NavigationManager
 
 <PageTitle>Master Calendar - Fargo Spa and Wellness</PageTitle>
 
@@ -432,10 +433,12 @@ else
             _ => ("Appointment update", $"There's an update to your <strong>{serviceName}</strong> appointment with {clientName} on {when}."),
         };
 
+        var providerDashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), "/admin/dashboard");
         await EmailSender.SendAsync(
             provider.Email,
             $"{subject} - Fargo Spa and Wellness",
-            $"<p>Hi {provider.FirstName},</p><p>{bodyIntro}</p>");
+            $"<p>Hi {provider.FirstName},</p><p>{bodyIntro}</p>" +
+            $"<p>View your schedule here: <a href=\"{providerDashboardUrl}\">{providerDashboardUrl}</a></p>");
     }
 
     private async Task ConfirmAndCancelBookingAsync()

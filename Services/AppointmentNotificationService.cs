@@ -1,4 +1,5 @@
 using Family_and_Spa_Wellness.Models;
+using Microsoft.AspNetCore.Components;
 
 namespace Family_and_Spa_Wellness.Services;
 
@@ -14,8 +15,12 @@ public enum ChangeActor
     Admin,
 }
 
-public class AppointmentNotificationService(IEmailSender emailSender)
+public class AppointmentNotificationService(IEmailSender emailSender, NavigationManager navigationManager)
 {
+    private Uri ClientPortalUrl => new(new Uri(navigationManager.BaseUri), "/dashboard");
+
+    private Uri ProviderPortalUrl => new(new Uri(navigationManager.BaseUri), "/admin/dashboard");
+
     public async Task NotifyCancelledAsync(User? client, User? provider, Service? service, DateTime start, DateTime end, ChangeActor actor)
     {
         var serviceName = service?.Name ?? "the treatment";
@@ -27,7 +32,8 @@ public class AppointmentNotificationService(IEmailSender emailSender)
                 provider.Email,
                 "An appointment was cancelled - Fargo Spa and Wellness",
                 $"<p>Hi {provider.FirstName},</p>" +
-                $"<p>{ClientLine(client)} cancelled their <strong>{serviceName}</strong> appointment that was scheduled for {when}.</p>");
+                $"<p>{ClientLine(client)} cancelled their <strong>{serviceName}</strong> appointment that was scheduled for {when}.</p>" +
+                PortalLink(ProviderPortalUrl));
         }
         else if (actor == ChangeActor.Provider && client is not null)
         {
@@ -36,7 +42,8 @@ public class AppointmentNotificationService(IEmailSender emailSender)
                 "Your appointment was cancelled - Fargo Spa and Wellness",
                 $"<p>Hi {client.FirstName},</p>" +
                 $"<p>Your <strong>{serviceName}</strong> appointment scheduled for {when} has been cancelled by {ProviderLine(provider)}. " +
-                "Please contact us or book a new time that works for you.</p>");
+                "Please contact us or book a new time that works for you.</p>" +
+                PortalLink(ClientPortalUrl));
         }
         else if (actor == ChangeActor.Admin)
         {
@@ -49,7 +56,8 @@ public class AppointmentNotificationService(IEmailSender emailSender)
                     "Your appointment was cancelled - Fargo Spa and Wellness",
                     $"<p>Hi {client.FirstName},</p>" +
                     $"<p>Your <strong>{serviceName}</strong> appointment scheduled for {when} has been cancelled by our team. " +
-                    "Please contact us or book a new time that works for you.</p>");
+                    "Please contact us or book a new time that works for you.</p>" +
+                    PortalLink(ClientPortalUrl));
             }
 
             if (provider is not null)
@@ -58,7 +66,8 @@ public class AppointmentNotificationService(IEmailSender emailSender)
                     provider.Email,
                     "An appointment was cancelled - Fargo Spa and Wellness",
                     $"<p>Hi {provider.FirstName},</p>" +
-                    $"<p>The <strong>{serviceName}</strong> appointment with {ClientLine(client)} scheduled for {when} has been cancelled by our team.</p>");
+                    $"<p>The <strong>{serviceName}</strong> appointment with {ClientLine(client)} scheduled for {when} has been cancelled by our team.</p>" +
+                    PortalLink(ProviderPortalUrl));
             }
         }
     }
@@ -76,7 +85,8 @@ public class AppointmentNotificationService(IEmailSender emailSender)
                 provider.Email,
                 "An appointment was rescheduled - Fargo Spa and Wellness",
                 $"<p>Hi {provider.FirstName},</p>" +
-                $"<p>{ClientLine(client)} rescheduled their <strong>{serviceName}</strong> appointment - it {changeLine}.</p>");
+                $"<p>{ClientLine(client)} rescheduled their <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
+                PortalLink(ProviderPortalUrl));
         }
         else if (actor == ChangeActor.Provider && client is not null)
         {
@@ -84,7 +94,8 @@ public class AppointmentNotificationService(IEmailSender emailSender)
                 client.Email,
                 "Your appointment was rescheduled - Fargo Spa and Wellness",
                 $"<p>Hi {client.FirstName},</p>" +
-                $"<p>{ProviderLine(provider)} rescheduled your <strong>{serviceName}</strong> appointment - it {changeLine}.</p>");
+                $"<p>{ProviderLine(provider)} rescheduled your <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
+                PortalLink(ClientPortalUrl));
         }
         else if (actor == ChangeActor.Admin)
         {
@@ -94,7 +105,8 @@ public class AppointmentNotificationService(IEmailSender emailSender)
                     client.Email,
                     "Your appointment was rescheduled - Fargo Spa and Wellness",
                     $"<p>Hi {client.FirstName},</p>" +
-                    $"<p>Our team rescheduled your <strong>{serviceName}</strong> appointment - it {changeLine}.</p>");
+                    $"<p>Our team rescheduled your <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
+                    PortalLink(ClientPortalUrl));
             }
 
             if (provider is not null)
@@ -103,10 +115,14 @@ public class AppointmentNotificationService(IEmailSender emailSender)
                     provider.Email,
                     "An appointment was rescheduled - Fargo Spa and Wellness",
                     $"<p>Hi {provider.FirstName},</p>" +
-                    $"<p>Our team rescheduled the <strong>{serviceName}</strong> appointment with {ClientLine(client)} - it {changeLine}.</p>");
+                    $"<p>Our team rescheduled the <strong>{serviceName}</strong> appointment with {ClientLine(client)} - it {changeLine}.</p>" +
+                    PortalLink(ProviderPortalUrl));
             }
         }
     }
+
+    private static string PortalLink(Uri url) =>
+        $"<p>View this here: <a href=\"{url}\">{url}</a></p>";
 
     private static string ClientLine(User? client) =>
         client is null ? "A client" : $"{client.FullName} ({client.Email})";

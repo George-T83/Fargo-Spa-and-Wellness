@@ -38,7 +38,7 @@
                     </div>
                     <div class="dashboard-profile-row">
                         <span class="dashboard-profile-label">Phone</span>
-                        <span>@user.Phone</span>
+                        <span>@FormatPhone(user.Phone)</span>
                     </div>
                     <div class="dashboard-profile-row">
                         <span class="dashboard-profile-label">Upcoming</span>
@@ -95,6 +95,7 @@
                         }
                         else
                         {
+                            <a href="/review" class="btn btn-spa-secondary btn-sm mb-3">Leave a Review</a>
                             @foreach (var a in past)
                             {
                                 <div class="dashboard-appt-row past">
@@ -103,6 +104,35 @@
                                         <p class="dashboard-appt-time">@a.StartTime.ToString("dddd, MMMM d") at @a.StartTime.ToString("h:mm tt")</p>
                                     </div>
                                     <span class="dashboard-appt-price">@a.Service?.Price.ToString("C")</span>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <div class="auth-card mt-3">
+                        <h2 class="booking-card-title">My Reviews</h2>
+                        @if (myReviews.Count == 0)
+                        {
+                            <p class="booking-card-subtitle">You haven't left a review yet.</p>
+                        }
+                        else
+                        {
+                            @foreach (var t in myReviews)
+                            {
+                                <div class="dashboard-appt-row">
+                                    <div>
+                                        <div class="testimonial-stars">
+                                            @for (var i = 1; i <= 5; i++)
+                                            {
+                                                <span class="testimonial-star @(i <= t.Rating ? "filled" : "empty")">@(i <= t.Rating ? "★" : "☆")</span>
+                                            }
+                                        </div>
+                                        <p class="dashboard-appt-time mb-0">@t.ReviewText</p>
+                                        @if (t.ApprovalStatus == "Pending")
+                                        {
+                                            <p class="dashboard-appt-policy-note">Pending approval</p>
+                                        }
+                                    </div>
                                 </div>
                             }
                         }
@@ -120,6 +150,7 @@
     private User? user;
     private List<Appointment> upcoming = new();
     private List<Appointment> past = new();
+    private List<Testimonial> myReviews = new();
     private string? statusMessage;
     private string? errorMessage;
     private int currentUserId;
@@ -154,6 +185,25 @@
 
         upcoming = appointments.Where(a => a.StartTime >= DateTime.Now).ToList();
         past = appointments.Where(a => a.StartTime < DateTime.Now).OrderByDescending(a => a.StartTime).ToList();
+
+        myReviews = await db.Testimonials
+            .Where(t => t.ClientId == currentUserId && t.ApprovalStatus != "Rejected")
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
+    private static string FormatPhone(string phone)
+    {
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+
+        if (digits.Length == 11 && digits[0] == '1')
+        {
+            digits = digits[1..];
+        }
+
+        return digits.Length == 10
+            ? $"({digits[..3]})-{digits.Substring(3, 3)}-{digits[6..]}"
+            : phone;
     }
 
     private async Task ConfirmAndCancelAsync(Appointment appt)
