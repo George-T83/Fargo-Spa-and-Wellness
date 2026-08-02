@@ -16,6 +16,18 @@ public class Appointment
     public string? StripeCheckoutSessionId { get; set; }
     public string? StripePaymentIntentId { get; set; }
 
+    // "Scheduled", "Completed", "NoShow", or "Cancelled". Cancelling used to
+    // hard-delete the row, which meant a cancelled appointment left no trace
+    // for reporting - now it's a terminal status instead, so the reporting
+    // pie chart (and any future audit trail) has something to count.
+    public string AppointmentStatus { get; set; } = "Scheduled";
+
+    // Whether this appointment has been moved at least once. Not mutually
+    // exclusive with AppointmentStatus - a rescheduled appointment can still
+    // end up Completed, NoShow, or Cancelled - so it's tracked separately
+    // rather than as its own status bucket.
+    public bool WasRescheduled { get; set; }
+
     public User? Client { get; set; }
     public Service? Service { get; set; }
     public User? Provider { get; set; }

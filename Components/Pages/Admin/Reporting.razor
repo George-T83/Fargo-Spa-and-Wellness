@@ -46,6 +46,39 @@ else
         </div>
     </div>
 
+    <h2 class="admin-section-title">Appointment outcomes</h2>
+    @if (report.StatusBreakdown.All(s => s.Count == 0))
+    {
+        <div class="admin-coming-soon">
+            <p>No bookings in this period.</p>
+        </div>
+    }
+    else
+    {
+        <div class="admin-outcome-wrap mb-4">
+            <p class="admin-outcome-total">@report.TotalBookings total appointments</p>
+            <div class="admin-outcome-bar">
+                @foreach (var slice in report.StatusBreakdown.Where(s => s.Count > 0))
+                {
+                    <div class="admin-outcome-bar-segment"
+                         style="width:@(slice.Percent.ToString("0.##"))%; background:var(@slice.ColorVar)"
+                         title="@($"{slice.Label}: {slice.Count} ({slice.Percent.ToString("0.#")}%)")">
+                    </div>
+                }
+            </div>
+            <ul class="admin-donut-legend admin-outcome-legend">
+                @foreach (var slice in report.StatusBreakdown)
+                {
+                    <li>
+                        <span class="admin-donut-swatch" style="background:var(@slice.ColorVar)"></span>
+                        <span class="admin-donut-legend-label">@slice.Label</span>
+                        <span class="admin-donut-legend-value">@slice.Count (@slice.Percent.ToString("0.#")%)</span>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+
     <h2 class="admin-section-title">Bookings over time</h2>
     @if (report.Trend.Count == 0)
     {
@@ -110,6 +143,12 @@ else
 
     private record TrendPoint(string Label, int Count, double HeightPercent, bool ShowLabel);
     private record ServiceRevenue(string ServiceName, int BookingCount, decimal Revenue);
+    // ColorVar names a CSS custom property (see app.css) rather than a hex
+    // directly, so the status→color mapping lives in one place. These map
+    // to the dataviz status palette - good/warning/critical/neutral - not
+    // generic categorical colors, because the slices genuinely mean
+    // good/bad outcomes, not just "series 4".
+    private record StatusSlice(string Label, int Count, double Percent, string ColorVar);
     private record ReportData(
         int TotalBookings,
         int CompletedBookings,
@@ -117,7 +156,8 @@ else
         decimal TotalRevenue,
         int UniqueClients,
         List<TrendPoint> Trend,
-        List<ServiceRevenue> TopServices);
+        List<ServiceRevenue> TopServices,
+        List<StatusSlice> StatusBreakdown);
 
     protected override async Task OnInitializedAsync()
     {
@@ -144,9 +184,7 @@ else
             .ToListAsync();
 
         var totalBookings = appointments.Count;
-        // "Completed" matches the FSW-19 definition: EndTime < now. There is
-        // no separate status field on Appointment.
-        var completedBookings = appointments.Count(a => a.EndTime < ClinicClock.Now);
+        var completedBookings = appointments.Count(a => a.AppointmentStatus == "Completed");
         var completedPercentage = totalBookings == 0 ? 0 : (double)completedBookings / totalBookings * 100;
         // Revenue counts every booking in the period regardless of
         // completion status - it answers "how much business was booked",
@@ -163,7 +201,27 @@ else
             .Take(5)
             .ToList();
 
-        report = new ReportData(totalBookings, completedBookings, completedPercentage, totalRevenue, uniqueClients, trend, topServices);
+        var statusBreakdown = BuildStatusBreakdown(appointments, totalBookings);
+
+        report = new ReportData(totalBookings, completedBookings, completedPercentage, totalRevenue, uniqueClients, trend, topServices, statusBreakdown);
+    }
+
+    private static List<StatusSlice> BuildStatusBreakdown(List<Appointment> appointments, int totalBookings)
+    {
+        double Pct(int count) => totalBookings == 0 ? 0 : (double)count / totalBookings * 100;
+
+        var completed = appointments.Count(a => a.AppointmentStatus == "Completed");
+        var scheduled = appointments.Count(a => a.AppointmentStatus == "Scheduled");
+        var cancelled = appointments.Count(a => a.AppointmentStatus == "Cancelled");
+        var noShow = appointments.Count(a => a.AppointmentStatus == "NoShow");
+
+        return new List<StatusSlice>
+        {
+            new("Completed", completed, Pct(completed), "--status-good"),
+            new("Scheduled", scheduled, Pct(scheduled), "--status-neutral"),
+            new("Cancelled", cancelled, Pct(cancelled), "--status-warning"),
+            new("No-Show", noShow, Pct(noShow), "--status-critical"),
+        };
     }
 
     private List<TrendPoint> BuildTrend(List<Appointment> appointments, DateTime rangeStart, DateTime rangeEnd)

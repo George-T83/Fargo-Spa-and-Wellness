@@ -123,6 +123,21 @@ else
                     <button type="button" class="btn-reject" @onclick="ConfirmAndCancelBookingAsync">Cancel Booking</button>
                 }
             </div>
+
+            @if (editingAppointment.Id != 0 && editingAppointment.EndTime < ClinicClock.Now)
+            {
+                <div class="admin-service-actions" style="margin-top:0.5rem;">
+                    @if (editingAppointment.AppointmentStatus == "Scheduled")
+                    {
+                        <button type="button" class="btn btn-spa-primary btn-sm" @onclick='() => MarkOutcomeAsync(editingAppointment, "Completed")'>Mark Complete</button>
+                        <button type="button" class="btn-reject btn-sm" @onclick='() => MarkOutcomeAsync(editingAppointment, "NoShow")'>Mark No-Show</button>
+                    }
+                    else
+                    {
+                        <span class="admin-status-badge @StatusBadgeClass(editingAppointment.AppointmentStatus)">@editingAppointment.AppointmentStatus</span>
+                    }
+                </div>
+            }
         </div>
     }
 
@@ -201,7 +216,7 @@ else
             .Include(a => a.Client)
             .Include(a => a.Service)
             .Include(a => a.Provider)
-            .Where(a => a.StartTime >= weekStart && a.StartTime < weekEnd);
+            .Where(a => a.AppointmentStatus != "Cancelled" && a.StartTime >= weekStart && a.StartTime < weekEnd);
 
         if (selectedProviderFilter != 0)
         {
@@ -282,6 +297,20 @@ else
 
     private void StartEdit(Appointment appt)
     {
+        // The Client/Provider dropdowns are normally filtered to
+        // Role == "Client"/"Provider", but a handful of test bookings were
+        // made against Admin/Provider accounts directly - without this, the
+        // dropdown has no matching <option> for that user's Id and silently
+        // renders blank even though the underlying value is set correctly.
+        if (appt.Client is not null && !clients.Any(c => c.Id == appt.Client.Id))
+        {
+            clients.Add(appt.Client);
+        }
+        if (appt.Provider is not null && !providers.Any(p => p.Id == appt.Provider.Id))
+        {
+            providers.Add(appt.Provider);
+        }
+
         editingAppointment = new Appointment
         {
             Id = appt.Id,
@@ -371,6 +400,10 @@ else
                 dbAppt.ClientId = editingAppointment.ClientId;
                 dbAppt.ServiceId = editingAppointment.ServiceId;
                 dbAppt.ProviderId = providerId;
+                if (dbAppt.StartTime != editingAppointment.StartTime || dbAppt.EndTime != editingAppointment.EndTime)
+                {
+                    dbAppt.WasRescheduled = true;
+                }
                 dbAppt.StartTime = editingAppointment.StartTime;
                 dbAppt.EndTime = editingAppointment.EndTime;
                 statusMessage = "Booking updated.";
@@ -480,6 +513,7 @@ else
                 {
                     await StripeCheckout.CreateRefundAsync(dbAppt.StripePaymentIntentId);
                     refunded = true;
+                    dbAppt.PaymentStatus = "Refunded";
                 }
                 catch (Stripe.StripeException)
                 {
@@ -487,7 +521,7 @@ else
                 }
             }
 
-            db.Appointments.Remove(dbAppt);
+            dbAppt.AppointmentStatus = "Cancelled";
             await db.SaveChangesAsync();
             statusMessage ??= refunded ? "Booking cancelled and payment refunded." : "Booking cancelled.";
 
@@ -497,4 +531,28 @@ else
         editingAppointment = null;
         await LoadWeekAsync();
     }
+
+    private async Task MarkOutcomeAsync(Appointment appt, string outcome)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbAppt = await db.Appointments.FirstOrDefaultAsync(a => a.Id == appt.Id);
+        if (dbAppt is null)
+        {
+            return;
+        }
+
+        dbAppt.AppointmentStatus = outcome;
+        await db.SaveChangesAsync();
+
+        statusMessage = outcome == "Completed" ? "Marked as completed." : "Marked as no-show.";
+        editingAppointment = null;
+        await LoadWeekAsync();
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Completed" => "completed",
+        "NoShow" => "noshow",
+        _ => "pending",
+    };
 }

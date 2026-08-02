@@ -17,6 +17,13 @@
     --spa-ink-700: #373943;
     --spa-ink-800: #2a2c34;
     --spa-ink-900: #1c1d22;
+
+    /* Status palette for the reporting donut - reserved meanings
+       (good/warning/critical), never reused as generic series colors. */
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-critical: #d03b3b;
+    --status-neutral: #898781;
 }
 
 html, body {
@@ -797,12 +804,6 @@ h1:focus {
     box-shadow: 0 0 0 3px rgba(99, 138, 84, 0.15);
 }
 
-.booking-summary-line {
-    color: var(--spa-ink-600);
-    font-size: 0.9rem;
-    margin-bottom: 1.5rem;
-}
-
 .booking-calendar-nav {
     display: flex;
     align-items: center;
@@ -1034,6 +1035,7 @@ h1:focus {
 .booking-provider-field {
     max-width: 320px;
     margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .booking-actions {
@@ -1041,7 +1043,6 @@ h1:focus {
     align-items: center;
     justify-content: space-between;
     padding-top: 1rem;
-    border-top: 1px solid var(--spa-sand-100);
 }
 .admin-page-header {
     margin-bottom: 1.75rem;
@@ -1905,6 +1906,18 @@ h1:focus {
     background-color: #fbe2e1;
 }
 
+.btn-reject:disabled,
+.btn-spa-secondary:disabled,
+.btn-spa-secondary.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.btn-reject:disabled:hover {
+    background-color: #fdf0f0;
+}
+
 .admin-status-badge.pending {
     background-color: rgba(212, 160, 23, 0.15);
     color: #9a7413;
@@ -1918,6 +1931,21 @@ h1:focus {
 .admin-status-badge.rejected {
     background-color: rgba(163, 64, 62, 0.12);
     color: #a3403e;
+}
+
+.admin-status-badge.completed {
+    background-color: rgba(99, 138, 84, 0.15);
+    color: var(--spa-sage-700);
+}
+
+.admin-status-badge.noshow {
+    background-color: rgba(163, 64, 62, 0.12);
+    color: #a3403e;
+}
+
+.admin-status-badge.cancelled {
+    background-color: rgba(212, 160, 23, 0.15);
+    color: #9a7413;
 }
 
 .dashboard-grid {
@@ -2217,4 +2245,214 @@ h1:focus {
 .profile-back-link:hover {
     color: var(--spa-sage-700);
     text-decoration: underline;
+}
+
+.admin-outcome-wrap {
+    padding: 1.25rem;
+}
+
+.admin-outcome-total {
+    font-size: 0.85rem;
+    color: var(--spa-ink-400);
+    margin: 0 0 0.6rem;
+}
+
+.admin-outcome-bar {
+    display: flex;
+    width: 100%;
+    height: 28px;
+    border-radius: 0.4rem;
+    overflow: hidden;
+    background-color: var(--spa-sand-200);
+    margin-bottom: 1rem;
+}
+
+.admin-outcome-bar-segment {
+    height: 100%;
+}
+
+.admin-donut-legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.admin-outcome-legend {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+}
+
+.admin-donut-legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.88rem;
+}
+
+.admin-donut-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.admin-donut-legend-label {
+    color: var(--spa-ink-700);
+    font-weight: 500;
+}
+
+.admin-donut-legend-value {
+    color: var(--spa-ink-400);
+}
+
+.notify-pref-hint {
+    font-size: 0.85rem;
+    color: var(--spa-ink-400);
+    margin-bottom: 0.75rem;
+}
+
+.notify-pref-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+}
+
+.notify-pref-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.7rem;
+    border: 1px solid var(--spa-sand-200);
+    background-color: #fff;
+    text-align: left;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notify-pref-option:hover {
+    border-color: var(--spa-sage-500);
+    background-color: var(--spa-sage-50);
+}
+
+.notify-pref-option.selected {
+    border-color: var(--spa-sage-600);
+    background-color: var(--spa-sage-50);
+    box-shadow: 0 0 0 3px rgba(99, 138, 84, 0.15);
+}
+
+.notify-pref-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+.notify-pref-label {
+    font-weight: 600;
+    color: var(--spa-ink-800);
+    font-size: 0.92rem;
+}
+
+.notify-pref-desc {
+    font-size: 0.78rem;
+    color: var(--spa-ink-400);
+}
+
+@media (max-width: 480px) {
+    .notify-pref-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.notify-pref-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.booking-test-card-hint {
+    background-color: var(--spa-sage-50);
+    border: 1px dashed var(--spa-sage-500);
+    border-radius: 0.7rem;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 1.25rem;
+}
+
+.booking-test-card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--spa-sage-700);
+    margin-bottom: 0.6rem;
+}
+
+.booking-test-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem 1.5rem;
+}
+
+.booking-test-card-label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--spa-ink-400);
+}
+
+.booking-test-card-value {
+    display: block;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.9rem;
+    color: var(--spa-ink-800);
+    font-weight: 600;
+}
+
+@media (max-width: 480px) {
+    .booking-test-card-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.admin-timeoff-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--spa-sand-200);
+}
+
+.admin-timeoff-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--spa-ink-800);
+    margin-bottom: 0.35rem;
+}
+
+.admin-timeoff-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 1rem 0 1.25rem;
+}
+
+.admin-timeoff-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 28rem;
+}
+
+.admin-timeoff-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.55rem 0.9rem;
+    border-radius: 0.5rem;
+    background-color: var(--spa-sand-50);
+    border: 1px solid var(--spa-sand-200);
+    font-size: 0.88rem;
+    color: var(--spa-ink-700);
 }

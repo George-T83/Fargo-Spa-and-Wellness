@@ -50,6 +50,23 @@
             <ValidationMessage For="() => model.Phone" class="auth-error" />
         </div>
 
+        <div class="auth-field">
+            <label class="auth-label">Notifications</label>
+            <p class="notify-pref-hint">Get emailed about booking changes (cancellations, reschedules, receipts)?</p>
+            <div class="notify-pref-grid notify-pref-grid-2">
+                <button type="button" class="notify-pref-option @(model.NotifyByEmail ? "selected" : "")"
+                        @onclick="() => SetPreference(true)">
+                    <span class="notify-pref-icon">✉️</span>
+                    <span class="notify-pref-label">Email me</span>
+                </button>
+                <button type="button" class="notify-pref-option @(!model.NotifyByEmail ? "selected" : "")"
+                        @onclick="() => SetPreference(false)">
+                    <span class="notify-pref-icon">🔕</span>
+                    <span class="notify-pref-label">No emails</span>
+                </button>
+            </div>
+        </div>
+
         <button type="submit" class="btn btn-spa-primary w-100">Save changes</button>
     </EditForm>
 </div>
@@ -99,7 +116,13 @@
             model.LastName = user.LastName;
             model.Phone = user.Phone;
             model.Email = user.Email;
+            model.NotifyByEmail = user.NotifyByEmail;
         }
+    }
+
+    private void SetPreference(bool email)
+    {
+        model.NotifyByEmail = email;
     }
 
     private async Task HandleUpdate()
@@ -124,6 +147,7 @@
         user.FirstName = model.FirstName.Trim();
         user.LastName = model.LastName.Trim();
         user.Phone = model.Phone;
+        user.NotifyByEmail = model.NotifyByEmail;
 
         await db.SaveChangesAsync();
 
@@ -149,5 +173,6 @@
         public string Phone { get; set; } = string.Empty;
 
         public string Email { get; set; } = string.Empty;
+        public bool NotifyByEmail { get; set; } = true;
     }
 }

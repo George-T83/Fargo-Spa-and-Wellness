@@ -269,7 +269,7 @@
         var dayEnd = dayStart.AddDays(1);
 
         var existingQuery = db.Appointments
-            .Where(a => a.Id != appointment.Id && a.StartTime < dayEnd && a.EndTime > dayStart);
+            .Where(a => a.Id != appointment.Id && a.AppointmentStatus != "Cancelled" && a.StartTime < dayEnd && a.EndTime > dayStart);
         if (appointment.ProviderId is not null)
         {
             existingQuery = existingQuery.Where(a => a.ProviderId == appointment.ProviderId);
@@ -323,7 +323,7 @@
         var newStart = selectedStart.Value;
         var newEnd = newStart.Add(TimeSpan.FromMinutes(dbAppt.Service.DurationMinutes));
 
-        var conflictQuery = db.Appointments.Where(a => a.Id != dbAppt.Id && a.StartTime < newEnd && newStart < a.EndTime);
+        var conflictQuery = db.Appointments.Where(a => a.Id != dbAppt.Id && a.AppointmentStatus != "Cancelled" && a.StartTime < newEnd && newStart < a.EndTime);
         if (dbAppt.ProviderId is not null)
         {
             conflictQuery = conflictQuery.Where(a => a.ProviderId == dbAppt.ProviderId);
@@ -341,6 +341,7 @@
 
         dbAppt.StartTime = newStart;
         dbAppt.EndTime = newEnd;
+        dbAppt.WasRescheduled = true;
         await db.SaveChangesAsync();
 
         await NotificationService.NotifyRescheduledAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, oldStart, oldEnd, newStart, newEnd, actor);

@@ -8,7 +8,12 @@ namespace Family_and_Spa_Wellness.Services;
 // recommended API hierarchy for one-time, on-session web payments.
 public class StripeCheckoutService(IOptions<StripeSettings> settings)
 {
-    public async Task<Session> CreateEmbeddedSessionAsync(string serviceName, decimal amount, int appointmentId, Uri returnUrl)
+    // No Appointment row exists yet when the session is created - the booking
+    // details travel entirely in Stripe's own metadata, and the Appointment
+    // is only created once the webhook confirms payment actually succeeded
+    // (see StripeWebhookEndpoints.MarkAppointmentPaidAsync). That way nothing
+    // ever lands in the database for a checkout that's abandoned or fails.
+    public async Task<Session> CreateEmbeddedSessionAsync(string serviceName, decimal amount, Uri returnUrl, Dictionary<string, string> bookingMetadata)
     {
         var options = new SessionCreateOptions
         {
@@ -31,10 +36,7 @@ public class StripeCheckoutService(IOptions<StripeSettings> settings)
                     },
                 },
             ],
-            Metadata = new Dictionary<string, string>
-            {
-                ["appointmentId"] = appointmentId.ToString(),
-            },
+            Metadata = bookingMetadata,
         };
 
         var client = new SessionService(new Stripe.StripeClient(settings.Value.SecretKey));

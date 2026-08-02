@@ -11,4 +11,9 @@ public class User
     public string Role { get; set; } = "Client";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string FullName => $"{FirstName} {LastName}".Trim();
+
+    // Whether this account receives email notifications about booking
+    // changes (cancellations, reschedules, payment receipts). Applies to
+    // every account type (Client, Provider, Admin).
+    public bool NotifyByEmail { get; set; } = true;
 }

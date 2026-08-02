@@ -17,9 +17,22 @@ public enum ChangeActor
 
 public class AppointmentNotificationService(IEmailSender emailSender, NavigationManager navigationManager)
 {
-    private Uri ClientPortalUrl => new(new Uri(navigationManager.BaseUri), "/dashboard");
+    private const string BusinessPhone = "(701) 555-0100";
 
     private Uri ProviderPortalUrl => new(new Uri(navigationManager.BaseUri), "/admin/dashboard");
+
+    private Uri ContactUrl => new(new Uri(navigationManager.BaseUri), "/contact");
+
+    // Every notification goes through here so a user's "email notifications"
+    // preference (set on their profile) is always respected, regardless of
+    // which flow (cancel, reschedule, admin override) triggered it.
+    private async Task NotifyAsync(User recipient, string subject, string emailHtml)
+    {
+        if (recipient.NotifyByEmail)
+        {
+            await emailSender.SendAsync(recipient.Email, subject, emailHtml);
+        }
+    }
 
     public async Task NotifyCancelledAsync(User? client, User? provider, Service? service, DateTime start, DateTime end, ChangeActor actor, bool refunded = false)
     {
@@ -31,8 +44,8 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
 
         if (actor == ChangeActor.Client && provider is not null)
         {
-            await emailSender.SendAsync(
-                provider.Email,
+            await NotifyAsync(
+                provider,
                 "An appointment was cancelled - Fargo Spa and Wellness",
                 $"<p>Hi {provider.FirstName},</p>" +
                 $"<p>{ClientLine(client)} cancelled their <strong>{serviceName}</strong> appointment that was scheduled for {when}.</p>" +
@@ -40,13 +53,13 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
         }
         else if (actor == ChangeActor.Provider && client is not null)
         {
-            await emailSender.SendAsync(
-                client.Email,
+            await NotifyAsync(
+                client,
                 "Your appointment was cancelled - Fargo Spa and Wellness",
                 $"<p>Hi {client.FirstName},</p>" +
                 $"<p>Your <strong>{serviceName}</strong> appointment scheduled for {when} has been cancelled by {ProviderLine(provider)}. " +
                 "Please contact us or book a new time that works for you.</p>" +
-                PortalLink(ClientPortalUrl));
+                ClientContactLine());
         }
         else if (actor == ChangeActor.Admin)
         {
@@ -54,20 +67,20 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
             // admin's own name/email - just a neutral "the spa" framing.
             if (client is not null)
             {
-                await emailSender.SendAsync(
-                    client.Email,
+                await NotifyAsync(
+                    client,
                     "Your appointment was cancelled - Fargo Spa and Wellness",
                     $"<p>Hi {client.FirstName},</p>" +
                     $"<p>Your <strong>{serviceName}</strong> appointment scheduled for {when} has been cancelled by our team. " +
                     "Please contact us or book a new time that works for you.</p>" +
                     refundLine +
-                    PortalLink(ClientPortalUrl));
+                    ClientContactLine());
             }
 
             if (provider is not null)
             {
-                await emailSender.SendAsync(
-                    provider.Email,
+                await NotifyAsync(
+                    provider,
                     "An appointment was cancelled - Fargo Spa and Wellness",
                     $"<p>Hi {provider.FirstName},</p>" +
                     $"<p>The <strong>{serviceName}</strong> appointment with {ClientLine(client)} scheduled for {when} has been cancelled by our team.</p>" +
@@ -85,8 +98,8 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
 
         if (actor == ChangeActor.Client && provider is not null)
         {
-            await emailSender.SendAsync(
-                provider.Email,
+            await NotifyAsync(
+                provider,
                 "An appointment was rescheduled - Fargo Spa and Wellness",
                 $"<p>Hi {provider.FirstName},</p>" +
                 $"<p>{ClientLine(client)} rescheduled their <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
@@ -94,29 +107,29 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
         }
         else if (actor == ChangeActor.Provider && client is not null)
         {
-            await emailSender.SendAsync(
-                client.Email,
+            await NotifyAsync(
+                client,
                 "Your appointment was rescheduled - Fargo Spa and Wellness",
                 $"<p>Hi {client.FirstName},</p>" +
                 $"<p>{ProviderLine(provider)} rescheduled your <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
-                PortalLink(ClientPortalUrl));
+                ClientContactLine());
         }
         else if (actor == ChangeActor.Admin)
         {
             if (client is not null)
             {
-                await emailSender.SendAsync(
-                    client.Email,
+                await NotifyAsync(
+                    client,
                     "Your appointment was rescheduled - Fargo Spa and Wellness",
                     $"<p>Hi {client.FirstName},</p>" +
                     $"<p>Our team rescheduled your <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
-                    PortalLink(ClientPortalUrl));
+                    ClientContactLine());
             }
 
             if (provider is not null)
             {
-                await emailSender.SendAsync(
-                    provider.Email,
+                await NotifyAsync(
+                    provider,
                     "An appointment was rescheduled - Fargo Spa and Wellness",
                     $"<p>Hi {provider.FirstName},</p>" +
                     $"<p>Our team rescheduled the <strong>{serviceName}</strong> appointment with {ClientLine(client)} - it {changeLine}.</p>" +
@@ -127,6 +140,9 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
 
     private static string PortalLink(Uri url) =>
         $"<p>View this here: <a href=\"{url}\">{url}</a></p>";
+
+    private string ClientContactLine() =>
+        $"<p>Questions? Call us at {BusinessPhone} or visit our <a href=\"{ContactUrl}\">Contact Us</a> page.</p>";
 
     private static string ClientLine(User? client) =>
         client is null ? "A client" : $"{client.FullName} ({client.Email})";
