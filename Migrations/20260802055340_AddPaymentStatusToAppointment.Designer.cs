@@ -3,6 +3,7 @@ using System;
 using Family_and_Spa_Wellness.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Family_and_Spa_Wellness.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260802055340_AddPaymentStatusToAppointment")]
+    partial class AddPaymentStatusToAppointment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -46,9 +49,6 @@ namespace Family_and_Spa_Wellness.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("StripeCheckoutSessionId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StripePaymentIntentId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");

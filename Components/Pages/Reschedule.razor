@@ -75,7 +75,7 @@
                             @foreach (var day in WeekDays())
                             {
                                 <button type="button" class="booking-day @(selectedDate.Date == day.Date ? "selected" : "")"
-                                        disabled="@(day.Date < DateTime.Today)"
+                                        disabled="@(day.Date < ClinicClock.Today)"
                                         @onclick="() => SelectDate(day)">
                                     <span class="booking-day-label">@day.ToString("ddd").ToUpperInvariant()</span>
                                     <span class="booking-day-number">@day.Day</span>
@@ -140,13 +140,13 @@
     private ChangeActor actor;
     private int currentUserId;
 
-    private DateTime weekStart = StartOfWeek(DateTime.Today);
-    private DateTime selectedDate = DateTime.Today;
+    private DateTime weekStart = StartOfWeek(ClinicClock.Today);
+    private DateTime selectedDate = ClinicClock.Today;
     private DateTime? selectedStart;
     private List<TimeSlot> slots = new();
     private bool loadingSlots;
 
-    private bool IsCurrentWeek => weekStart.Date <= StartOfWeek(DateTime.Today);
+    private bool IsCurrentWeek => weekStart.Date <= StartOfWeek(ClinicClock.Today);
 
     protected override async Task OnInitializedAsync()
     {
@@ -205,9 +205,9 @@
 
         // Only the client's own self-service reschedule is bound by the
         // 24-hour cancellation policy - staff managing the calendar aren't.
-        blockedByPolicy = actor == ChangeActor.Client && appointment.StartTime < DateTime.Now.AddHours(24);
+        blockedByPolicy = actor == ChangeActor.Client && appointment.StartTime < ClinicClock.Now.AddHours(24);
 
-        selectedDate = appointment.StartTime.Date < DateTime.Today ? DateTime.Today : appointment.StartTime.Date;
+        selectedDate = appointment.StartTime.Date < ClinicClock.Today ? ClinicClock.Today : appointment.StartTime.Date;
         weekStart = StartOfWeek(selectedDate);
         loading = false;
 
@@ -242,7 +242,7 @@
 
     private async Task SelectDate(DateTime date)
     {
-        if (date.Date < DateTime.Today) return;
+        if (date.Date < ClinicClock.Today) return;
         selectedDate = date.Date;
         await LoadSlotsAsync();
     }
@@ -278,12 +278,12 @@
         var existing = await existingQuery.Select(a => new { a.StartTime, a.EndTime }).ToListAsync();
 
         var duration = TimeSpan.FromMinutes(appointment.Service.DurationMinutes);
-        var isToday = selectedDate.Date == DateTime.Today;
+        var isToday = selectedDate.Date == ClinicClock.Today;
         var generated = new List<TimeSlot>();
 
         for (var start = dayStart.Add(OpeningTime); start.Add(duration) <= dayStart.Add(ClosingTime); start = start.Add(SlotInterval))
         {
-            if (isToday && start <= DateTime.Now)
+            if (isToday && start <= ClinicClock.Now)
             {
                 continue;
             }

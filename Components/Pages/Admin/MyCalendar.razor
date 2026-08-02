@@ -4,6 +4,7 @@
 @attribute [Authorize(Roles = "Provider")]
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
@@ -42,7 +43,7 @@ else
             <div class="calendar-time-header"></div>
             @foreach (var day in WeekDays)
             {
-                <div class="calendar-day-header @(day.Date == DateTime.Today ? "today" : "")">@day.ToString("ddd M/d")</div>
+                <div class="calendar-day-header @(day.Date == ClinicClock.Today ? "today" : "")">@day.ToString("ddd M/d")</div>
             }
 
             <div class="calendar-time-col">
@@ -79,7 +80,7 @@ else
     private const int PxPerHour = 60;
 
     private int providerId;
-    private DateTime weekStart = StartOfWeek(DateTime.Today);
+    private DateTime weekStart = StartOfWeek(ClinicClock.Today);
     private List<Appointment>? appointments;
     private HashSet<int> conflictIds = new();
     private int conflictCount;
@@ -150,7 +151,7 @@ else
 
     private async Task GoToToday()
     {
-        weekStart = StartOfWeek(DateTime.Today);
+        weekStart = StartOfWeek(ClinicClock.Today);
         await LoadWeekAsync();
     }
 

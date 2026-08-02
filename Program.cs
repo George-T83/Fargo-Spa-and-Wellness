@@ -4,10 +4,19 @@ using Family_and_Spa_Wellness.Models;
 using Family_and_Spa_Wellness.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 LoadDotEnv(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
+
+// Pin currency/date formatting to en-US regardless of the host OS locale -
+// without this, a server with no locale configured (e.g. a bare Linux VM)
+// falls back to the invariant culture, whose currency symbol is literally
+// "¤" instead of "$".
+var defaultCulture = new System.Globalization.CultureInfo("en-US");
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = defaultCulture;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = defaultCulture;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +54,27 @@ builder.Services.Configure<SmtpOptions>(options =>
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<AppointmentNotificationService>();
 
+// Sandbox/test-mode only (FSW-17) - keys come from STRIPE_* env vars / .env, never committed.
+builder.Services.Configure<StripeSettings>(options =>
+{
+    options.PublishableKey = builder.Configuration["STRIPE_PUBLISHABLE_KEY"] ?? options.PublishableKey;
+    options.SecretKey = builder.Configuration["STRIPE_SECRET_KEY"] ?? options.SecretKey;
+    options.WebhookSecret = builder.Configuration["STRIPE_WEBHOOK_SECRET"] ?? options.WebhookSecret;
+});
+builder.Services.AddScoped<StripeCheckoutService>();
+
+// Render (and most PaaS hosts) terminate TLS at their edge and forward plain
+// HTTP to the container, so without this the app thinks every request is
+// insecure and UseHttpsRedirection() below loops forever. KnownNetworks/
+// KnownProxies are cleared because the host's proxy isn't in the default
+// trusted list - see https://learn.microsoft.com/aspnet/core/host-and-deploy/proxy-load-balancer.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -76,6 +106,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
+app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -90,6 +121,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapAccountAuthEndpoints();
+app.MapStripeWebhookEndpoints();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

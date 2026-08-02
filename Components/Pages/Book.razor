@@ -4,10 +4,15 @@
 @using Family_and_Spa_Wellness.Models
 @using Family_and_Spa_Wellness.Services
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Options
 @using System.Security.Claims
+@implements IAsyncDisposable
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IEmailSender EmailSender
 @inject NavigationManager NavigationManager
+@inject StripeCheckoutService StripeCheckout
+@inject IOptions<StripeSettings> StripeSettings
+@inject IJSRuntime JsRuntime
 
 <PageTitle>Book an Appointment - Fargo Spa and Wellness</PageTitle>
 
@@ -26,15 +31,6 @@
             {
                 <p>Loading...</p>
             }
-            else if (submitted)
-            {
-                <div class="auth-card">
-                    <div class="alert alert-success mb-0" role="alert">
-                        You're booked! @confirmedService?.Name on @confirmedStart?.ToString("dddd, MMMM d") at @confirmedStart?.ToString("h:mm tt").
-                        We look forward to seeing you.
-                    </div>
-                </div>
-            }
             else
             {
                 <div class="booking-stepper">
@@ -47,7 +43,11 @@
                     </div>
                     <div class="booking-step-connector"></div>
                     <div class="booking-step @StepClass(3)">
-                        <span class="booking-step-badge">3</span> Confirm
+                        <span class="booking-step-badge">@(awaitingPayment ? "✓" : "3")</span> Review
+                    </div>
+                    <div class="booking-step-connector"></div>
+                    <div class="booking-step @(awaitingPayment ? "active" : "")">
+                        <span class="booking-step-badge">4</span> Payment
                     </div>
                 </div>
 
@@ -112,7 +112,7 @@
                             @foreach (var day in WeekDays())
                             {
                                 <button type="button" class="booking-day @(selectedDate.Date == day.Date ? "selected" : "")"
-                                        disabled="@(day.Date < DateTime.Today)"
+                                        disabled="@(day.Date < ClinicClock.Today)"
                                         @onclick="() => SelectDate(day)">
                                     <span class="booking-day-label">@day.ToString("ddd").ToUpperInvariant()</span>
                                     <span class="booking-day-number">@day.Day</span>
@@ -168,10 +168,10 @@
                             </button>
                         </div>
                     }
-                    else if (step == 3 && selectedService is not null && selectedStart is not null)
+                    else if (step == 3 && selectedService is not null && selectedStart is not null && !awaitingPayment)
                     {
                         <h2 class="booking-card-title">Review &amp; confirm</h2>
-                        <p class="booking-card-subtitle">Please review your booking before confirming.</p>
+                        <p class="booking-card-subtitle">Please review your booking before paying.</p>
 
                         <div class="booking-review-table">
                             <div class="booking-review-row">
@@ -223,10 +223,25 @@
 
                         <div class="booking-actions">
                             <button type="button" class="btn btn-spa-secondary" @onclick="GoToStep2">&larr; Back</button>
-                            <button type="button" class="btn btn-spa-primary" disabled="@(!isAuthenticated || !consentGiven)" @onclick="HandleBooking">
-                                Confirm Booking
+                            <button type="button" class="btn btn-spa-primary" disabled="@(!isAuthenticated || !consentGiven || creatingCheckout)" @onclick="HandleBooking">
+                                @(creatingCheckout ? "Preparing payment..." : "Continue to Payment")
                             </button>
                         </div>
+                    }
+                    else if (step == 3 && awaitingPayment && selectedService is not null && selectedStart is not null)
+                    {
+                        <h2 class="booking-card-title">Payment</h2>
+                        <p class="booking-payment-note">🔒 Stripe test mode &mdash; use card 4242 4242 4242 4242, any future expiry, any CVC. No real charge will be made.</p>
+
+                        <div class="booking-payment-summary">
+                            <div>
+                                <p class="booking-payment-summary-name">@selectedService.Name</p>
+                                <p class="booking-payment-summary-meta">@selectedStart.Value.ToString("ddd, MMM d") at @selectedStart.Value.ToString("h:mm tt")</p>
+                            </div>
+                            <span class="booking-payment-summary-price">@selectedService.Price.ToString("C")</span>
+                        </div>
+
+                        <div id="stripe-checkout-container" class="booking-stripe-container"></div>
                     }
                 </div>
             }
@@ -254,8 +269,8 @@
     private int selectedServiceId;
     private int selectedProviderId;
     private Service? selectedService;
-    private DateTime weekStart = StartOfWeek(DateTime.Today);
-    private DateTime selectedDate = DateTime.Today;
+    private DateTime weekStart = StartOfWeek(ClinicClock.Today);
+    private DateTime selectedDate = ClinicClock.Today;
     private List<TimeSlot> slots = new();
     private TimeSlot? nextAvailableSlot;
     [CascadingParameter]
@@ -265,12 +280,15 @@
     private DateTime? selectedStart;
     private bool consentGiven;
     private string? errorMessage;
-    private bool submitted;
     private bool loadingSlots;
-    private Service? confirmedService;
-    private DateTime? confirmedStart;
 
-    private bool IsCurrentWeek => weekStart.Date <= StartOfWeek(DateTime.Today);
+    private bool creatingCheckout;
+    private bool awaitingPayment;
+    private string? checkoutClientSecret;
+    private bool checkoutMounted;
+    private IJSObjectReference? stripeModule;
+
+    private bool IsCurrentWeek => weekStart.Date <= StartOfWeek(ClinicClock.Today);
 
     protected override async Task OnInitializedAsync()
     {
@@ -433,7 +451,7 @@
 
     private async Task SelectDate(DateTime date)
     {
-        if (date.Date < DateTime.Today) return;
+        if (date.Date < ClinicClock.Today) return;
         selectedDate = date.Date;
         await LoadSlotsAsync();
     }
@@ -478,12 +496,12 @@
             .ToListAsync();
 
         var duration = TimeSpan.FromMinutes(service.DurationMinutes);
-        var isToday = selectedDate.Date == DateTime.Today;
+        var isToday = selectedDate.Date == ClinicClock.Today;
         var generated = new List<TimeSlot>();
 
         for (var start = dayStart.Add(OpeningTime); start.Add(duration) <= dayStart.Add(ClosingTime); start = start.Add(SlotInterval))
         {
-            if (isToday && start <= DateTime.Now)
+            if (isToday && start <= ClinicClock.Now)
             {
                 continue;
             }
@@ -511,92 +529,132 @@
     private async Task HandleBooking()
     {
         errorMessage = null;
-
-        if (selectedServiceId == 0 || selectedStart is null)
+        creatingCheckout = true;
+        try
         {
-            errorMessage = "Please select a treatment and a time slot.";
-            return;
-        }
-
-        var sessionEmail = await GetSessionEmailAsync();
-        if (sessionEmail is null)
-        {
-            errorMessage = "You must be signed in to complete a booking.";
-            return;
-        }
-
-        await using var db = await DbContextFactory.CreateDbContextAsync();
-
-        var client = await db.Users.FirstOrDefaultAsync(u => u.Email == sessionEmail);
-        if (client is null)
-        {
-            errorMessage = "Your user account could not be found.";
-            return;
-        }
-
-        var service = await db.Services.FindAsync(selectedServiceId);
-        if (service is null)
-        {
-            errorMessage = "Selected treatment is no longer available.";
-            return;
-        }
-
-        var start = selectedStart.Value;
-        var end = start.Add(TimeSpan.FromMinutes(service.DurationMinutes));
-
-        var conflictQuery = db.Appointments.Where(a => a.StartTime < end && start < a.EndTime);
-        if (selectedProviderId != 0)
-        {
-            conflictQuery = conflictQuery.Where(a => a.ProviderId == selectedProviderId);
-        }
-
-        var stillAvailable = !await conflictQuery.AnyAsync();
-        if (!stillAvailable)
-        {
-            errorMessage = "That time slot was just booked by someone else. Please choose another.";
-            step = 2;
-            await LoadSlotsAsync();
-            return;
-        }
-
-        db.Appointments.Add(new Appointment
-        {
-            ClientId = client.Id,
-            ServiceId = service.Id,
-            ProviderId = selectedProviderId == 0 ? null : selectedProviderId,
-            StartTime = start,
-            EndTime = end,
-        });
-        await db.SaveChangesAsync();
-
-        var dashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), "/dashboard");
-        await EmailSender.SendAsync(
-            client.Email,
-            "Your Fargo Spa and Wellness booking is confirmed",
-            $"<p>Hi {client.FirstName},</p>" +
-            $"<p>You're booked for <strong>{service.Name}</strong> on {start:dddd, MMMM d} at {start:h:mm tt}.</p>" +
-            $"<p>We look forward to seeing you.</p>" +
-            $"<p>Manage this booking here: <a href=\"{dashboardUrl}\">{dashboardUrl}</a></p>");
-
-        if (selectedProviderId != 0)
-        {
-            var provider = providers.FirstOrDefault(p => p.Id == selectedProviderId);
-            if (provider is not null)
+            if (selectedServiceId == 0 || selectedStart is null)
             {
-                var providerDashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), "/admin/dashboard");
-                await EmailSender.SendAsync(
-                    provider.Email,
-                    "New appointment assigned to you - Fargo Spa and Wellness",
-                    $"<p>Hi {provider.FirstName},</p>" +
-                    $"<p>You've been assigned a new appointment: <strong>{service.Name}</strong> " +
-                    $"with {client.FirstName} {client.LastName} on {start:dddd, MMMM d} from {start:h:mm tt} to {end:h:mm tt}.</p>" +
-                    $"<p>View your schedule here: <a href=\"{providerDashboardUrl}\">{providerDashboardUrl}</a></p>");
+                errorMessage = "Please select a treatment and a time slot.";
+                return;
+            }
+
+            var sessionEmail = await GetSessionEmailAsync();
+            if (sessionEmail is null)
+            {
+                errorMessage = "You must be signed in to complete a booking.";
+                return;
+            }
+
+            await using var db = await DbContextFactory.CreateDbContextAsync();
+
+            var client = await db.Users.FirstOrDefaultAsync(u => u.Email == sessionEmail);
+            if (client is null)
+            {
+                errorMessage = "Your user account could not be found.";
+                return;
+            }
+
+            var service = await db.Services.FindAsync(selectedServiceId);
+            if (service is null)
+            {
+                errorMessage = "Selected treatment is no longer available.";
+                return;
+            }
+
+            var start = selectedStart.Value;
+            var end = start.Add(TimeSpan.FromMinutes(service.DurationMinutes));
+
+            var conflictQuery = db.Appointments.Where(a => a.StartTime < end && start < a.EndTime);
+            if (selectedProviderId != 0)
+            {
+                conflictQuery = conflictQuery.Where(a => a.ProviderId == selectedProviderId);
+            }
+
+            var stillAvailable = !await conflictQuery.AnyAsync();
+            if (!stillAvailable)
+            {
+                errorMessage = "That time slot was just booked by someone else. Please choose another.";
+                step = 2;
+                await LoadSlotsAsync();
+                return;
+            }
+
+            var appointment = new Appointment
+            {
+                ClientId = client.Id,
+                ServiceId = service.Id,
+                ProviderId = selectedProviderId == 0 ? null : selectedProviderId,
+                StartTime = start,
+                EndTime = end,
+            };
+            db.Appointments.Add(appointment);
+            await db.SaveChangesAsync();
+
+            var dashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), "/dashboard");
+            await EmailSender.SendAsync(
+                client.Email,
+                "Your Fargo Spa and Wellness booking is confirmed",
+                $"<p>Hi {client.FirstName},</p>" +
+                $"<p>You're booked for <strong>{service.Name}</strong> on {start:dddd, MMMM d} at {start:h:mm tt}.</p>" +
+                "<p>Complete payment on the next step to secure your appointment.</p>" +
+                $"<p>Manage this booking here: <a href=\"{dashboardUrl}\">{dashboardUrl}</a></p>");
+
+            if (selectedProviderId != 0)
+            {
+                var provider = providers.FirstOrDefault(p => p.Id == selectedProviderId);
+                if (provider is not null)
+                {
+                    var providerDashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), "/admin/dashboard");
+                    await EmailSender.SendAsync(
+                        provider.Email,
+                        "New appointment assigned to you - Fargo Spa and Wellness",
+                        $"<p>Hi {provider.FirstName},</p>" +
+                        $"<p>You've been assigned a new appointment: <strong>{service.Name}</strong> " +
+                        $"with {client.FirstName} {client.LastName} on {start:dddd, MMMM d} from {start:h:mm tt} to {end:h:mm tt}.</p>" +
+                        $"<p>View your schedule here: <a href=\"{providerDashboardUrl}\">{providerDashboardUrl}</a></p>");
+                }
+            }
+
+            var returnUrl = new Uri(new Uri(NavigationManager.BaseUri), "/book/payment-complete");
+            var session = await StripeCheckout.CreateEmbeddedSessionAsync(service.Name, service.Price, appointment.Id, returnUrl);
+
+            appointment.StripeCheckoutSessionId = session.Id;
+            await db.SaveChangesAsync();
+
+            checkoutClientSecret = session.ClientSecret;
+            checkoutMounted = false;
+            awaitingPayment = true;
+        }
+        finally
+        {
+            creatingCheckout = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (awaitingPayment && !checkoutMounted && checkoutClientSecret is not null)
+        {
+            checkoutMounted = true;
+            stripeModule ??= await JsRuntime.InvokeAsync<IJSObjectReference>("import", "/js/stripeCheckout.js");
+            await stripeModule.InvokeVoidAsync("mountCheckout", StripeSettings.Value.PublishableKey, checkoutClientSecret, "stripe-checkout-container");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (stripeModule is not null)
+        {
+            try
+            {
+                await stripeModule.InvokeVoidAsync("destroyCheckout");
+                await stripeModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit already gone - nothing to clean up.
             }
         }
-
-        confirmedService = service;
-        confirmedStart = start;
-        submitted = true;
     }
 
     private record TimeSlot(DateTime Start, DateTime End, bool Available);

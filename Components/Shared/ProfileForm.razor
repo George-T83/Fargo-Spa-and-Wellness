@@ -3,6 +3,7 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject NavigationManager NavigationManager
 
 <div class="auth-card">
     <EditForm Model="model" OnValidSubmit="HandleUpdate">
@@ -80,6 +81,12 @@
                 await LoadProfileAsync();
             }
         }
+
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(NavigationManager.Uri).Query);
+        if (query["updated"] == "1")
+        {
+            successMessage = "Profile updated successfully!";
+        }
     }
 
     private async Task LoadProfileAsync()
@@ -120,7 +127,13 @@
 
         await db.SaveChangesAsync();
 
-        successMessage = "Profile updated successfully!";
+        // The nav bar's greeting comes from a claim baked into the auth
+        // cookie at login - it won't reflect this name change until the
+        // cookie is reissued, which Blazor Server can only do via a real
+        // HTTP round-trip (not from inside the live circuit).
+        var currentPath = new Uri(NavigationManager.Uri).AbsolutePath;
+        var returnUrl = Uri.EscapeDataString($"{currentPath}?updated=1");
+        NavigationManager.NavigateTo($"/account/refresh-claims?returnUrl={returnUrl}", forceLoad: true);
     }
 
     private class ProfileModel
