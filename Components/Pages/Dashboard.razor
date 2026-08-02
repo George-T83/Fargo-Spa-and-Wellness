@@ -76,7 +76,7 @@
                                             <a href="@($"/reschedule/{a.Id}")" class="btn btn-spa-secondary btn-sm">Reschedule</a>
                                             <button type="button" class="btn-reject btn-sm" @onclick="() => ConfirmAndCancelAsync(a)">Cancel</button>
                                         </div>
-                                        @if (a.StartTime < DateTime.Now.AddHours(24))
+                                        @if (a.StartTime < ClinicClock.Now.AddHours(24))
                                         {
                                             <p class="dashboard-appt-policy-note">Starts within 24 hours - contact us directly to change this booking.</p>
                                         }
@@ -183,8 +183,8 @@
             .OrderBy(a => a.StartTime)
             .ToListAsync();
 
-        upcoming = appointments.Where(a => a.StartTime >= DateTime.Now).ToList();
-        past = appointments.Where(a => a.StartTime < DateTime.Now).OrderByDescending(a => a.StartTime).ToList();
+        upcoming = appointments.Where(a => a.StartTime >= ClinicClock.Now).ToList();
+        past = appointments.Where(a => a.StartTime < ClinicClock.Now).OrderByDescending(a => a.StartTime).ToList();
 
         myReviews = await db.Testimonials
             .Where(t => t.ClientId == currentUserId && t.ApprovalStatus != "Rejected")
@@ -229,7 +229,7 @@
             return;
         }
 
-        if (dbAppt.StartTime < DateTime.Now.AddHours(24))
+        if (dbAppt.StartTime < ClinicClock.Now.AddHours(24))
         {
             errorMessage = "This appointment starts in less than 24 hours and cannot be cancelled online. Please contact us directly.";
             await LoadAsync();

@@ -1,0 +1,101 @@
+@page "/book/payment-complete"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject StripeCheckoutService StripeCheckout
+@inject IEmailSender EmailSender
+
+<PageTitle>Payment Complete - Fargo Spa and Wellness</PageTitle>
+
+<section class="services-section">
+    <div class="container profile-container">
+        @if (loading)
+        {
+            <p>Loading...</p>
+        }
+        else if (appointment is null)
+        {
+            <div class="auth-card">
+                <div class="alert alert-danger" role="alert">We couldn't find that payment session.</div>
+                <a href="/book" class="btn btn-spa-secondary w-100 mt-3">Back to Booking</a>
+            </div>
+        }
+        else if (paid)
+        {
+            <div class="auth-card" style="text-align:center;">
+                <div class="booking-confirmed-icon">&#10003;</div>
+                <h1 class="section-title" style="font-size:1.5rem;">Booking Confirmed!</h1>
+                <p class="booking-card-subtitle">We've reserved your spot. A payment receipt has been sent to your email.</p>
+
+                <div class="booking-payment-summary" style="text-align:left; margin-top:1.5rem;">
+                    <div>
+                        <p class="booking-payment-summary-name">@appointment.Service?.Name</p>
+                        <p class="booking-payment-summary-meta">@appointment.StartTime.ToString("dddd, MMMM d") at @appointment.StartTime.ToString("h:mm tt")</p>
+                    </div>
+                    <span class="booking-payment-summary-price">@appointment.Service?.Price.ToString("C")</span>
+                </div>
+
+                <div class="booking-actions" style="justify-content:center;">
+                    <a href="/dashboard" class="btn btn-spa-primary">View My Dashboard</a>
+                    <a href="/" class="btn btn-spa-secondary">Back to Home</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="auth-card">
+                <div class="alert alert-danger" role="alert">
+                    Payment wasn't completed (@paymentStatus). Your appointment is on hold but not yet paid.
+                </div>
+                <a href="/dashboard" class="btn btn-spa-secondary w-100 mt-3">Go to Dashboard</a>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "session_id")]
+    public string? SessionId { get; set; }
+
+    private bool loading = true;
+    private bool paid;
+    private string? paymentStatus;
+    private Appointment? appointment;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(SessionId))
+        {
+            loading = false;
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        appointment = await db.Appointments
+            .Include(a => a.Client)
+            .Include(a => a.Service)
+            .FirstOrDefaultAsync(a => a.StripeCheckoutSessionId == SessionId);
+
+        if (appointment is not null)
+        {
+            var session = await StripeCheckout.GetSessionAsync(SessionId);
+            paymentStatus = session.PaymentStatus;
+            paid = session.PaymentStatus == "paid";
+
+            if (paid)
+            {
+                // Idempotent - the webhook may have already marked this paid and
+                // sent the receipt; this is just a same-tab fallback for local dev
+                // where a webhook endpoint isn't configured yet.
+                await StripeWebhookEndpoints.MarkAppointmentPaidAsync(session, DbContextFactory, EmailSender);
+                await db.Entry(appointment).ReloadAsync();
+            }
+        }
+
+        loading = false;
+    }
+}

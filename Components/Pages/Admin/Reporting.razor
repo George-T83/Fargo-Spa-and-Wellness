@@ -4,6 +4,7 @@
 @attribute [Authorize(Roles = "Admin")]
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 
@@ -133,8 +134,8 @@ else
     {
         // Clean calendar-day range: "last N days" includes all of today, not
         // just up to the current time of day.
-        var rangeStart = DateTime.Today.AddDays(-(selectedRangeDays - 1));
-        var rangeEnd = DateTime.Today.AddDays(1);
+        var rangeStart = ClinicClock.Today.AddDays(-(selectedRangeDays - 1));
+        var rangeEnd = ClinicClock.Today.AddDays(1);
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
         var appointments = await db.Appointments
@@ -145,7 +146,7 @@ else
         var totalBookings = appointments.Count;
         // "Completed" matches the FSW-19 definition: EndTime < now. There is
         // no separate status field on Appointment.
-        var completedBookings = appointments.Count(a => a.EndTime < DateTime.Now);
+        var completedBookings = appointments.Count(a => a.EndTime < ClinicClock.Now);
         var completedPercentage = totalBookings == 0 ? 0 : (double)completedBookings / totalBookings * 100;
         // Revenue counts every booking in the period regardless of
         // completion status - it answers "how much business was booked",

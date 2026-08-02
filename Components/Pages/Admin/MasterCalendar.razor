@@ -11,6 +11,7 @@
 @inject AppointmentNotificationService NotificationService
 @inject IEmailSender EmailSender
 @inject NavigationManager NavigationManager
+@inject StripeCheckoutService StripeCheckout
 
 <PageTitle>Master Calendar - Fargo Spa and Wellness</PageTitle>
 
@@ -130,7 +131,7 @@ else
             <div class="calendar-time-header"></div>
             @foreach (var day in WeekDays)
             {
-                <div class="calendar-day-header @(day.Date == DateTime.Today ? "today" : "")">@day.ToString("ddd M/d")</div>
+                <div class="calendar-day-header @(day.Date == ClinicClock.Today ? "today" : "")">@day.ToString("ddd M/d")</div>
             }
 
             <div class="calendar-time-col">
@@ -164,7 +165,7 @@ else
     private const int EndHour = 19;
     private const int PxPerHour = 60;
 
-    private DateTime weekStart = StartOfWeek(DateTime.Today);
+    private DateTime weekStart = StartOfWeek(ClinicClock.Today);
     private List<User> providers = new();
     private List<User> clients = new();
     private List<Service> services = new();
@@ -247,7 +248,7 @@ else
 
     private async Task GoToToday()
     {
-        weekStart = StartOfWeek(DateTime.Today);
+        weekStart = StartOfWeek(ClinicClock.Today);
         await LoadWeekAsync();
     }
 
@@ -272,7 +273,7 @@ else
 
     private void StartCreate()
     {
-        var defaultStart = DateTime.Today.AddHours(9);
+        var defaultStart = ClinicClock.Today.AddHours(9);
         editingAppointment = new Appointment { StartTime = defaultStart, EndTime = defaultStart.AddHours(1) };
         editingProviderId = 0;
         validationErrors.Clear();
@@ -472,11 +473,25 @@ else
             var cancelledStart = dbAppt.StartTime;
             var cancelledEnd = dbAppt.EndTime;
 
+            var refunded = false;
+            if (dbAppt.PaymentStatus == "Paid" && !string.IsNullOrEmpty(dbAppt.StripePaymentIntentId))
+            {
+                try
+                {
+                    await StripeCheckout.CreateRefundAsync(dbAppt.StripePaymentIntentId);
+                    refunded = true;
+                }
+                catch (Stripe.StripeException)
+                {
+                    statusMessage = "Booking cancelled, but the refund failed - please refund manually in the Stripe Dashboard.";
+                }
+            }
+
             db.Appointments.Remove(dbAppt);
             await db.SaveChangesAsync();
-            statusMessage = "Booking cancelled.";
+            statusMessage ??= refunded ? "Booking cancelled and payment refunded." : "Booking cancelled.";
 
-            await NotificationService.NotifyCancelledAsync(cancelledClient, cancelledProvider, cancelledService, cancelledStart, cancelledEnd, ChangeActor.Admin);
+            await NotificationService.NotifyCancelledAsync(cancelledClient, cancelledProvider, cancelledService, cancelledStart, cancelledEnd, ChangeActor.Admin, refunded);
         }
 
         editingAppointment = null;

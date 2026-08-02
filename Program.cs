@@ -45,6 +45,15 @@ builder.Services.Configure<SmtpOptions>(options =>
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<AppointmentNotificationService>();
 
+// Sandbox/test-mode only (FSW-17) - keys come from STRIPE_* env vars / .env, never committed.
+builder.Services.Configure<StripeSettings>(options =>
+{
+    options.PublishableKey = builder.Configuration["STRIPE_PUBLISHABLE_KEY"] ?? options.PublishableKey;
+    options.SecretKey = builder.Configuration["STRIPE_SECRET_KEY"] ?? options.SecretKey;
+    options.WebhookSecret = builder.Configuration["STRIPE_WEBHOOK_SECRET"] ?? options.WebhookSecret;
+});
+builder.Services.AddScoped<StripeCheckoutService>();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -90,6 +99,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapAccountAuthEndpoints();
+app.MapStripeWebhookEndpoints();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

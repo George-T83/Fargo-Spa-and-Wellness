@@ -88,7 +88,7 @@ else
                             <td>@a.Service?.Name</td>
                             <td>@a.StartTime.ToString("MMM d, yyyy h:mm tt")</td>
                             <td>
-                                @if (a.StartTime > DateTime.Now)
+                                @if (a.StartTime > ClinicClock.Now)
                                 {
                                     <a href="/reschedule/@a.Id" class="btn btn-spa-secondary btn-sm">Reschedule</a>
                                     <button type="button" class="btn-reject btn-sm" @onclick="() => ConfirmAndCancelAsync(a)">Cancel</button>
@@ -134,7 +134,7 @@ else
 
         // No row for today means available by default - see ProviderAvailability.cs.
         var todayRow = await db.ProviderAvailability
-            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == DateTime.Today);
+            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == ClinicClock.Today);
         isAvailableToday = todayRow?.IsAvailable ?? true;
     }
 
@@ -151,9 +151,9 @@ else
         // There is no separate appointment status field, so state is derived
         // from StartTime/EndTime against "now". An appointment can count as
         // both "today" and "upcoming" if it's later today.
-        todayCount = appointments.Count(a => a.StartTime.Date == DateTime.Today);
-        upcomingCount = appointments.Count(a => a.StartTime > DateTime.Now);
-        completedCount = appointments.Count(a => a.EndTime < DateTime.Now);
+        todayCount = appointments.Count(a => a.StartTime.Date == ClinicClock.Today);
+        upcomingCount = appointments.Count(a => a.StartTime > ClinicClock.Now);
+        completedCount = appointments.Count(a => a.EndTime < ClinicClock.Now);
     }
 
     private async Task ConfirmAndCancelAsync(Appointment appt)
@@ -196,14 +196,14 @@ else
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
         var todayRow = await db.ProviderAvailability
-            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == DateTime.Today);
+            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == ClinicClock.Today);
 
         if (todayRow is null)
         {
             db.ProviderAvailability.Add(new ProviderAvailability
             {
                 ProviderId = providerId,
-                Date = DateTime.Today,
+                Date = ClinicClock.Today,
                 IsAvailable = newValue,
             });
         }

@@ -21,10 +21,13 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
 
     private Uri ProviderPortalUrl => new(new Uri(navigationManager.BaseUri), "/admin/dashboard");
 
-    public async Task NotifyCancelledAsync(User? client, User? provider, Service? service, DateTime start, DateTime end, ChangeActor actor)
+    public async Task NotifyCancelledAsync(User? client, User? provider, Service? service, DateTime start, DateTime end, ChangeActor actor, bool refunded = false)
     {
         var serviceName = service?.Name ?? "the treatment";
         var when = FormatWhen(start, end);
+        var refundLine = refunded
+            ? $"<p>Your payment of <strong>{service?.Price.ToString("C")}</strong> has been refunded and should appear on your original payment method within a few business days.</p>"
+            : string.Empty;
 
         if (actor == ChangeActor.Client && provider is not null)
         {
@@ -57,6 +60,7 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
                     $"<p>Hi {client.FirstName},</p>" +
                     $"<p>Your <strong>{serviceName}</strong> appointment scheduled for {when} has been cancelled by our team. " +
                     "Please contact us or book a new time that works for you.</p>" +
+                    refundLine +
                     PortalLink(ClientPortalUrl));
             }
 

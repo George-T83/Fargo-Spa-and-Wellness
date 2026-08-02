@@ -120,7 +120,7 @@
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
         hasPastAppointment = await db.Appointments
-            .AnyAsync(a => a.ClientId == currentUserId && a.StartTime < DateTime.Now);
+            .AnyAsync(a => a.ClientId == currentUserId && a.StartTime < ClinicClock.Now);
 
         var user = await db.Users.FindAsync(currentUserId);
         if (user is not null)

@@ -971,6 +971,62 @@ h1:focus {
     margin-bottom: 1.25rem;
 }
 
+.booking-payment-note {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--spa-ink-400);
+    font-size: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.booking-payment-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--spa-sand-50);
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.booking-payment-summary-name {
+    font-weight: 600;
+    color: var(--spa-ink-800);
+    margin: 0;
+}
+
+.booking-payment-summary-meta {
+    font-size: 0.8rem;
+    color: var(--spa-ink-400);
+    margin: 0.15rem 0 0;
+}
+
+.booking-payment-summary-price {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', Times, serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--spa-ink-800);
+}
+
+.booking-stripe-container {
+    min-height: 20rem;
+}
+
+.booking-confirmed-icon {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 999px;
+    background-color: var(--spa-sage-100, #e9efe4);
+    color: var(--spa-sage-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.25rem;
+    font-size: 1.75rem;
+}
+
 .booking-consent input {
     margin-top: 0.2rem;
 }
