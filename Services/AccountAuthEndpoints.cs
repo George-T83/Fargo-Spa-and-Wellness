@@ -68,5 +68,49 @@ public static class AccountAuthEndpoints
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return Results.Redirect("/");
         });
+
+        // Blazor Server can't rewrite the auth cookie from within an active
+        // interactive circuit (the response has already started), so profile
+        // edits that change name/email/role need a real HTTP round-trip
+        // through here to re-issue the cookie with fresh claims - otherwise
+        // the nav bar's "Hi, Name" greeting stays stuck on whatever it was
+        // at login until the user manually signs out and back in.
+        app.MapGet("/account/refresh-claims", async (HttpContext http, IDbContextFactory<AppDbContext> dbFactory, string? returnUrl) =>
+        {
+            var idClaim = http.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(idClaim, out var userId))
+            {
+                return Results.Redirect("/login");
+            }
+
+            await using var db = await dbFactory.CreateDbContextAsync();
+            var user = await db.Users.FindAsync(userId);
+            if (user is null)
+            {
+                return Results.Redirect("/login");
+            }
+
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
+                new(ClaimTypes.Email, user.Email),
+                new(ClaimTypes.Role, user.Role),
+            };
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+
+            await http.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(identity),
+                new AuthenticationProperties { IsPersistent = true });
+
+            var redirectUrl = "/profile";
+            if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/') && !returnUrl.StartsWith("//") && !returnUrl.StartsWith("/\\"))
+            {
+                redirectUrl = returnUrl;
+            }
+
+            return Results.Redirect(redirectUrl);
+        }).RequireAuthorization();
     }
 }
