@@ -1,33 +1,185 @@
 @page "/admin"
 @layout AdminLayout
+@rendermode InteractiveServer
 @attribute [Authorize(Roles = "Admin")]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject NavigationManager NavigationManager
 
 <PageTitle>Admin Dashboard - Fargo Spa and Wellness</PageTitle>
 
 <div class="admin-page-header">
-    <h1>Dashboard</h1>
-    <p>Welcome back. Here's a quick overview of the admin portal.</p>
+    <h1>Admin Dashboard</h1>
+    <p>Welcome back. Here's a quick overview of the spa.</p>
 </div>
 
-<div class="admin-card-grid">
-    <a href="/admin/calendar" class="admin-quick-card">
-        <h3>Master Calendar</h3>
-        <p>View all bookings, resolve conflicts, and apply overrides.</p>
-    </a>
-    <a href="/admin/services" class="admin-quick-card">
-        <h3>Service Catalog</h3>
-        <p>Add, edit, or retire treatments and pricing.</p>
-    </a>
-    <a href="/admin/users" class="admin-quick-card">
-        <h3>User Roles</h3>
-        <p>Manage Client, Provider, and Admin access.</p>
-    </a>
-    <a href="/admin/reporting" class="admin-quick-card">
-        <h3>Reporting</h3>
-        <p>Booking volume and revenue trends.</p>
-    </a>
-    <a href="/admin/testimonials" class="admin-quick-card">
-        <h3>Testimonials</h3>
-        <p>Approve or reject client reviews.</p>
-    </a>
-</div>
+@if (todaysAppointments is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="staff-dash-top-grid">
+        <div class="staff-dash-welcome-card">
+            <p class="staff-dash-date">@ClinicClock.Today.ToString("MMM d, yyyy")</p>
+            <h2>Welcome back, @firstName</h2>
+            <p class="staff-dash-subline">The spa has @todayCount appointment@(todayCount == 1 ? "" : "s") scheduled today.</p>
+            <div class="staff-dash-pill-row">
+                <div class="staff-dash-pill">
+                    <span class="staff-dash-pill-value">@todayCount</span>
+                    <span class="staff-dash-pill-label">Today's total</span>
+                </div>
+                <div class="staff-dash-pill">
+                    <span class="staff-dash-pill-value">@upcomingCount</span>
+                    <span class="staff-dash-pill-label">Upcoming</span>
+                </div>
+                <div class="staff-dash-pill">
+                    <span class="staff-dash-pill-value">@completedCount</span>
+                    <span class="staff-dash-pill-label">Completed</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="staff-dash-availability-card">
+            <p class="staff-dash-avail-label">This month</p>
+            <p class="staff-dash-avail-status">
+                <span class="staff-dash-avail-dot available"></span>
+                @monthRevenue.ToString("C")
+            </p>
+            <p class="staff-dash-avail-hint">@monthBookingCount booking@(monthBookingCount == 1 ? "" : "s") this month.</p>
+            @if (pendingTestimonialCount > 0)
+            {
+                <button type="button" class="btn btn-spa-secondary w-100" @onclick='() => NavigationManager.NavigateTo("/admin/testimonials")'>
+                    @pendingTestimonialCount review@(pendingTestimonialCount == 1 ? "" : "s") pending
+                </button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-spa-secondary w-100" @onclick='() => NavigationManager.NavigateTo("/admin/reporting")'>
+                    View full reporting
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="staff-dash-card mt-4">
+        <div class="staff-dash-card-header">
+            <h3>Today's Appointments</h3>
+            <span class="staff-dash-count-badge">@todaysAppointments.Count total</span>
+        </div>
+
+        @if (todaysAppointments.Count == 0)
+        {
+            <div class="admin-coming-soon">
+                <p>No appointments scheduled for today.</p>
+            </div>
+        }
+        else
+        {
+            <div class="staff-dash-appt-list">
+                @foreach (var a in todaysAppointments)
+                {
+                    <div class="staff-dash-appt-row">
+                        <div class="staff-dash-appt-time">
+                            <span class="staff-dash-appt-time-main">@a.StartTime.ToString("h:mm tt")</span>
+                            <span class="staff-dash-appt-time-end">@a.EndTime.ToString("h:mm tt")</span>
+                        </div>
+                        <div class="staff-dash-appt-info">
+                            <div class="staff-dash-appt-title-row">
+                                <span class="staff-dash-appt-service">@a.Service?.Name</span>
+                            </div>
+                            <span class="staff-dash-appt-client">👤 @a.Client?.FullName with @(a.Provider?.FullName ?? "no preference")</span>
+                        </div>
+                        <div class="staff-dash-appt-actions">
+                            <span class="admin-status-badge @StatusBadgeClass(a.AppointmentStatus)">@a.AppointmentStatus</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="staff-dash-card mt-4">
+        <div class="staff-dash-card-header">
+            <h3>Quick Actions</h3>
+        </div>
+        <div class="admin-card-grid">
+            <a href="/admin/calendar" class="admin-quick-card">
+                <h3>Master Calendar</h3>
+                <p>View all bookings, resolve conflicts, and apply overrides.</p>
+            </a>
+            <a href="/admin/services" class="admin-quick-card">
+                <h3>Service Catalog</h3>
+                <p>Add, edit, or retire treatments and pricing.</p>
+            </a>
+            <a href="/admin/users" class="admin-quick-card">
+                <h3>User Roles</h3>
+                <p>Manage Client, Provider, and Admin access.</p>
+            </a>
+            <a href="/admin/reporting" class="admin-quick-card">
+                <h3>Reporting</h3>
+                <p>Booking volume and revenue trends.</p>
+            </a>
+            <a href="/admin/testimonials" class="admin-quick-card">
+                <h3>Testimonials</h3>
+                <p>Approve or reject client reviews.</p>
+            </a>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private string firstName = "there";
+    private List<Appointment>? todaysAppointments;
+    private int todayCount;
+    private int upcomingCount;
+    private int completedCount;
+    private decimal monthRevenue;
+    private int monthBookingCount;
+    private int pendingTestimonialCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is not null)
+        {
+            var authState = await AuthStateTask;
+            firstName = authState.User.Identity?.Name?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "there";
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+
+        var allAppointments = await db.Appointments
+            .Include(a => a.Client)
+            .Include(a => a.Provider)
+            .Include(a => a.Service)
+            .Where(a => a.AppointmentStatus != "Cancelled")
+            .OrderBy(a => a.StartTime)
+            .ToListAsync();
+
+        todaysAppointments = allAppointments.Where(a => a.StartTime.Date == ClinicClock.Today).ToList();
+        todayCount = todaysAppointments.Count;
+        upcomingCount = allAppointments.Count(a => a.StartTime > ClinicClock.Now);
+        completedCount = todaysAppointments.Count(a => a.AppointmentStatus == "Completed");
+
+        var monthStart = new DateTime(ClinicClock.Today.Year, ClinicClock.Today.Month, 1);
+        var monthAppointments = allAppointments.Where(a => a.StartTime >= monthStart && a.StartTime < monthStart.AddMonths(1)).ToList();
+        monthBookingCount = monthAppointments.Count;
+        monthRevenue = monthAppointments.Where(a => a.PaymentStatus == "Paid").Sum(a => a.Service?.Price ?? 0m);
+
+        pendingTestimonialCount = await db.Testimonials.CountAsync(t => t.ApprovalStatus == "Pending");
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Completed" => "completed",
+        "NoShow" => "noshow",
+        _ => "pending",
+    };
+}
