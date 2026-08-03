@@ -237,9 +237,16 @@
             return $"{when}: Closed{(string.IsNullOrWhiteSpace(o.Reason) ? "" : $" ({o.Reason})")}";
         }
 
-        var detail = o.OpenTime is { } openT
-            ? $"opening at {FormatTime(openT)}"
-            : o.CloseTime is { } closeT ? $"closing at {FormatTime(closeT)}" : "hours adjusted";
+        var parts = new List<string>();
+        if (o.OpenTime is { } openT)
+        {
+            parts.Add($"opening at {FormatTime(openT)}");
+        }
+        if (o.CloseTime is { } closeT)
+        {
+            parts.Add($"closing at {FormatTime(closeT)}");
+        }
+        var detail = parts.Count > 0 ? string.Join(", ", parts) : "hours adjusted";
         return $"{when}: {detail}{(string.IsNullOrWhiteSpace(o.Reason) ? "" : $" ({o.Reason})")}";
     }
 

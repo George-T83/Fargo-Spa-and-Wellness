@@ -88,26 +88,28 @@ else
                 <input type="date" class="admin-role-select" @bind="newOverrideDate" />
             </div>
             <div class="admin-form-field">
-                <label>Type</label>
-                <select class="admin-role-select" value="@newOverrideType" @onchange="e => newOverrideType = e.Value?.ToString() ?? newOverrideType">
-                    <option value="CloseEarly">Close early</option>
-                    <option value="OpenLate">Open late</option>
-                    <option value="Closed">Closed all day</option>
-                </select>
+                <label>&nbsp;</label>
+                <label style="display:flex;align-items:center;gap:0.4rem;height:2.4rem;">
+                    <input type="checkbox" checked="@newOverrideClosed" @onchange="e => newOverrideClosed = (bool)(e.Value ?? false)" />
+                    Closed all day
+                </label>
             </div>
-            @if (newOverrideType == "OpenLate")
+            @if (!newOverrideClosed)
             {
                 <div class="admin-form-field">
-                    <label>Open at</label>
-                    <input type="time" class="admin-role-select" value="@newOverrideOpenTimeText"
+                    <label>
+                        <input type="checkbox" checked="@newOverrideOpenLate" @onchange="e => newOverrideOpenLate = (bool)(e.Value ?? false)" />
+                        Open late
+                    </label>
+                    <input type="time" class="admin-role-select" disabled="@(!newOverrideOpenLate)" value="@newOverrideOpenTimeText"
                            @onchange="e => newOverrideOpenTimeText = e.Value?.ToString() ?? newOverrideOpenTimeText" />
                 </div>
-            }
-            else if (newOverrideType == "CloseEarly")
-            {
                 <div class="admin-form-field">
-                    <label>Close at</label>
-                    <input type="time" class="admin-role-select" value="@newOverrideCloseTimeText"
+                    <label>
+                        <input type="checkbox" checked="@newOverrideCloseEarly" @onchange="e => newOverrideCloseEarly = (bool)(e.Value ?? false)" />
+                        Close early
+                    </label>
+                    <input type="time" class="admin-role-select" disabled="@(!newOverrideCloseEarly)" value="@newOverrideCloseTimeText"
                            @onchange="e => newOverrideCloseTimeText = e.Value?.ToString() ?? newOverrideCloseTimeText" />
                 </div>
             }
@@ -154,7 +156,9 @@ else
 
     private List<BusinessHoursOverride>? overrides;
     private DateTime newOverrideDate = ClinicClock.Today;
-    private string newOverrideType = "CloseEarly";
+    private bool newOverrideClosed;
+    private bool newOverrideOpenLate;
+    private bool newOverrideCloseEarly;
     private string newOverrideCloseTimeText = "14:00";
     private string newOverrideOpenTimeText = "11:00";
     private string newOverrideReason = string.Empty;
@@ -254,29 +258,53 @@ else
             return;
         }
 
-        var isClosed = newOverrideType == "Closed";
+        var isClosed = newOverrideClosed;
         TimeSpan? closeTime = null;
         TimeSpan? openTime = null;
 
-        if (newOverrideType == "CloseEarly")
+        if (!isClosed)
         {
-            if (!TimeSpan.TryParse(newOverrideCloseTimeText, out var parsed))
+            if (newOverrideCloseEarly)
             {
-                overrideError = "Enter a valid close time.";
+                if (!TimeSpan.TryParse(newOverrideCloseTimeText, out var parsedClose))
+                {
+                    overrideError = "Enter a valid close time.";
+                    return;
+                }
+
+                closeTime = parsedClose;
+            }
+
+            if (newOverrideOpenLate)
+            {
+                if (!TimeSpan.TryParse(newOverrideOpenTimeText, out var parsedOpen))
+                {
+                    overrideError = "Enter a valid open time.";
+                    return;
+                }
+
+                openTime = parsedOpen;
+            }
+
+            // Setting both is allowed (e.g. reduced hours for a half-day),
+            // but the resulting window has to make sense - the shop can't
+            // open after it closes. Check against the regular hours for
+            // that day of week too, since overriding only one side (say,
+            // opening late) could still land past the regular close time.
+            var regularHours = hoursByDay?[newOverrideDate.DayOfWeek];
+            var effectiveOpen = openTime ?? regularHours?.OpenTime ?? TimeSpan.Zero;
+            var effectiveClose = closeTime ?? regularHours?.CloseTime ?? TimeSpan.Zero;
+            if (effectiveOpen >= effectiveClose)
+            {
+                overrideError = "Open time must be before close time.";
                 return;
             }
 
-            closeTime = parsed;
-        }
-        else if (newOverrideType == "OpenLate")
-        {
-            if (!TimeSpan.TryParse(newOverrideOpenTimeText, out var parsed))
+            if (!newOverrideCloseEarly && !newOverrideOpenLate)
             {
-                overrideError = "Enter a valid open time.";
+                overrideError = "Check \"Open late\", \"Close early\", or \"Closed all day\".";
                 return;
             }
-
-            openTime = parsed;
         }
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
@@ -328,13 +356,18 @@ else
         {
             detail = "Closed all day";
         }
-        else if (o.OpenTime is { } openT)
-        {
-            detail = $"Opens at {DateTime.Today.Add(openT).ToString("h:mm tt")}";
-        }
         else
         {
-            detail = $"Closes at {(o.CloseTime is { } t ? DateTime.Today.Add(t).ToString("h:mm tt") : "?")}";
+            var parts = new List<string>();
+            if (o.OpenTime is { } openT)
+            {
+                parts.Add($"Opens at {DateTime.Today.Add(openT).ToString("h:mm tt")}");
+            }
+            if (o.CloseTime is { } closeT)
+            {
+                parts.Add($"closes at {DateTime.Today.Add(closeT).ToString("h:mm tt")}");
+            }
+            detail = string.Join(", ", parts);
         }
         return string.IsNullOrWhiteSpace(o.Reason) ? $"{when} - {detail}" : $"{when} - {detail} ({o.Reason})";
     }
