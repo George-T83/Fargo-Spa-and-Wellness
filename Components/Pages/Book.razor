@@ -43,10 +43,10 @@
                     </div>
                     <div class="booking-step-connector"></div>
                     <div class="booking-step @StepClass(3)">
-                        <span class="booking-step-badge">@(awaitingPayment ? "✓" : "3")</span> Review
+                        <span class="booking-step-badge">@(step > 3 ? "✓" : "3")</span> Review
                     </div>
                     <div class="booking-step-connector"></div>
-                    <div class="booking-step @(awaitingPayment ? "active" : "")">
+                    <div class="booking-step @StepClass(4)">
                         <span class="booking-step-badge">4</span> Payment
                     </div>
                 </div>
@@ -55,17 +55,6 @@
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
                         <div class="alert alert-danger" role="alert">@errorMessage</div>
-                    }
-
-                    @if (step > 1 && selectedService is not null)
-                    {
-                        <p class="booking-summary-line">
-                            @selectedService.Name &middot; @FormatDuration(selectedService.DurationMinutes) &middot; @selectedService.Price.ToString("C")
-                            @if (selectedStart is not null)
-                            {
-                                <text> &middot; @selectedStart.Value.ToString("ddd, MMM d") at @selectedStart.Value.ToString("h:mm tt")</text>
-                            }
-                        </p>
                     }
 
                     @if (step == 1)
@@ -100,7 +89,7 @@
                     else if (step == 2)
                     {
                         <h2 class="booking-card-title">Pick a date &amp; time</h2>
-                        <p class="booking-card-subtitle">Business hours are 9:00 AM to 5:00 PM.</p>
+                        <p class="booking-card-subtitle">Business hours are 8:00 AM to 5:00 PM.</p>
 
                         <div class="booking-calendar-nav">
                             <button type="button" class="booking-calendar-nav-btn" disabled="@IsCurrentWeek" @onclick="GoToPreviousWeek">&lsaquo;</button>
@@ -168,7 +157,7 @@
                             </button>
                         </div>
                     }
-                    else if (step == 3 && selectedService is not null && selectedStart is not null && !awaitingPayment)
+                    else if (step == 3 && selectedService is not null && selectedStart is not null)
                     {
                         <h2 class="booking-card-title">Review &amp; confirm</h2>
                         <p class="booking-card-subtitle">Please review your booking before paying.</p>
@@ -228,20 +217,38 @@
                             </button>
                         </div>
                     }
-                    else if (step == 3 && awaitingPayment && selectedService is not null && selectedStart is not null)
+                    else if (step == 4 && awaitingPayment && selectedService is not null && selectedStart is not null)
                     {
                         <h2 class="booking-card-title">Payment</h2>
-                        <p class="booking-payment-note">🔒 Stripe test mode &mdash; use card 4242 4242 4242 4242, any future expiry, any CVC. No real charge will be made.</p>
 
-                        <div class="booking-payment-summary">
-                            <div>
-                                <p class="booking-payment-summary-name">@selectedService.Name</p>
-                                <p class="booking-payment-summary-meta">@selectedStart.Value.ToString("ddd, MMM d") at @selectedStart.Value.ToString("h:mm tt")</p>
+                        <div class="booking-test-card-hint">
+                            <p class="booking-test-card-title">🧪 Sandbox test card - no real charge</p>
+                            <div class="booking-test-card-grid">
+                                <div>
+                                    <span class="booking-test-card-label">Card number</span>
+                                    <span class="booking-test-card-value">4242 4242 4242 4242</span>
+                                </div>
+                                <div>
+                                    <span class="booking-test-card-label">Expiry</span>
+                                    <span class="booking-test-card-value">Any future date (e.g. 12/34)</span>
+                                </div>
+                                <div>
+                                    <span class="booking-test-card-label">CVC</span>
+                                    <span class="booking-test-card-value">Any 3 digits</span>
+                                </div>
+                                <div>
+                                    <span class="booking-test-card-label">ZIP / postal code</span>
+                                    <span class="booking-test-card-value">Any valid code (e.g. 58102)</span>
+                                </div>
                             </div>
-                            <span class="booking-payment-summary-price">@selectedService.Price.ToString("C")</span>
                         </div>
 
                         <div id="stripe-checkout-container" class="booking-stripe-container"></div>
+
+                        <div class="booking-actions">
+                            <button type="button" class="btn btn-spa-secondary" @onclick="GoBackToReview">&larr; Back</button>
+                            <span></span>
+                        </div>
                     }
                 </div>
             }
@@ -259,7 +266,7 @@
     [SupplyParameterFromQuery(Name = "time")]
     public string? Time { get; set; }
 
-    private static readonly TimeSpan OpeningTime = TimeSpan.FromHours(9);
+    private static readonly TimeSpan OpeningTime = TimeSpan.FromHours(8);
     private static readonly TimeSpan ClosingTime = TimeSpan.FromHours(17);
     private static readonly TimeSpan SlotInterval = TimeSpan.FromMinutes(30);
 
@@ -480,19 +487,17 @@
         var dayStart = selectedDate.Date;
         var dayEnd = dayStart.AddDays(1);
 
+        var candidateProviderIds = (selectedProviderId != 0 ? new List<int> { selectedProviderId } : providers.Select(p => p.Id)).ToList();
+        var schedule = await ProviderScheduleService.LoadAsync(db, candidateProviderIds, dayStart);
+
         // When a specific therapist is requested, only that therapist's
         // bookings block a slot - other therapists can still take clients at
-        // the same time. With no preference we conservatively treat any
-        // existing booking as blocking, since we don't yet check therapist
-        // working hours here.
-        var existingQuery = db.Appointments.Where(a => a.StartTime < dayEnd && a.EndTime > dayStart);
-        if (selectedProviderId != 0)
-        {
-            existingQuery = existingQuery.Where(a => a.ProviderId == selectedProviderId);
-        }
-
-        var existing = await existingQuery
-            .Select(a => new { a.StartTime, a.EndTime })
+        // the same time. With no preference, a slot is only unavailable once
+        // every provider is booked at that time - one busy therapist out of
+        // several shouldn't hide the slot from everyone.
+        var existing = await db.Appointments
+            .Where(a => a.AppointmentStatus != "Cancelled" && a.StartTime < dayEnd && a.EndTime > dayStart && a.ProviderId != null)
+            .Select(a => new { a.ProviderId, a.StartTime, a.EndTime })
             .ToListAsync();
 
         var duration = TimeSpan.FromMinutes(service.DurationMinutes);
@@ -507,8 +512,23 @@
             }
 
             var end = start.Add(duration);
-            var overlaps = existing.Any(e => e.StartTime < end && start < e.EndTime);
-            generated.Add(new TimeSlot(start, end, !overlaps));
+            bool available;
+            if (selectedProviderId != 0)
+            {
+                available = schedule.IsWorking(selectedProviderId, start, end)
+                    && !existing.Any(e => e.ProviderId == selectedProviderId && e.StartTime < end && start < e.EndTime);
+            }
+            else if (providers.Count > 0)
+            {
+                var busyProviderIds = existing.Where(e => e.StartTime < end && start < e.EndTime).Select(e => e.ProviderId).ToHashSet();
+                available = providers.Any(p => schedule.IsWorking(p.Id, start, end) && !busyProviderIds.Contains(p.Id));
+            }
+            else
+            {
+                available = true;
+            }
+
+            generated.Add(new TimeSlot(start, end, available));
         }
 
         slots = generated;
@@ -564,13 +584,32 @@
             var start = selectedStart.Value;
             var end = start.Add(TimeSpan.FromMinutes(service.DurationMinutes));
 
-            var conflictQuery = db.Appointments.Where(a => a.StartTime < end && start < a.EndTime);
+            var candidateProviderIds = (selectedProviderId != 0 ? new List<int> { selectedProviderId } : providers.Select(p => p.Id)).ToList();
+            var schedule = await ProviderScheduleService.LoadAsync(db, candidateProviderIds, start.Date);
+
+            var overlapping = await db.Appointments
+                .Where(a => a.AppointmentStatus != "Cancelled" && a.StartTime < end && start < a.EndTime && a.ProviderId != null)
+                .Select(a => a.ProviderId)
+                .ToListAsync();
+
+            int? assignedProviderId;
             if (selectedProviderId != 0)
             {
-                conflictQuery = conflictQuery.Where(a => a.ProviderId == selectedProviderId);
+                assignedProviderId = schedule.IsWorking(selectedProviderId, start, end) && !overlapping.Contains(selectedProviderId)
+                    ? selectedProviderId
+                    : null;
+            }
+            else if (providers.Count > 0)
+            {
+                assignedProviderId = providers.Select(p => (int?)p.Id)
+                    .FirstOrDefault(id => schedule.IsWorking(id!.Value, start, end) && !overlapping.Contains(id));
+            }
+            else
+            {
+                assignedProviderId = null;
             }
 
-            var stillAvailable = !await conflictQuery.AnyAsync();
+            var stillAvailable = selectedProviderId != 0 ? assignedProviderId is not null : providers.Count == 0 || assignedProviderId is not null;
             if (!stillAvailable)
             {
                 errorMessage = "That time slot was just booked by someone else. Please choose another.";
@@ -579,55 +618,51 @@
                 return;
             }
 
-            var appointment = new Appointment
-            {
-                ClientId = client.Id,
-                ServiceId = service.Id,
-                ProviderId = selectedProviderId == 0 ? null : selectedProviderId,
-                StartTime = start,
-                EndTime = end,
-            };
-            db.Appointments.Add(appointment);
-            await db.SaveChangesAsync();
-
-            var dashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), "/dashboard");
-            await EmailSender.SendAsync(
-                client.Email,
-                "Your Fargo Spa and Wellness booking is confirmed",
-                $"<p>Hi {client.FirstName},</p>" +
-                $"<p>You're booked for <strong>{service.Name}</strong> on {start:dddd, MMMM d} at {start:h:mm tt}.</p>" +
-                "<p>Complete payment on the next step to secure your appointment.</p>" +
-                $"<p>Manage this booking here: <a href=\"{dashboardUrl}\">{dashboardUrl}</a></p>");
-
-            if (selectedProviderId != 0)
-            {
-                var provider = providers.FirstOrDefault(p => p.Id == selectedProviderId);
-                if (provider is not null)
-                {
-                    var providerDashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), "/admin/dashboard");
-                    await EmailSender.SendAsync(
-                        provider.Email,
-                        "New appointment assigned to you - Fargo Spa and Wellness",
-                        $"<p>Hi {provider.FirstName},</p>" +
-                        $"<p>You've been assigned a new appointment: <strong>{service.Name}</strong> " +
-                        $"with {client.FirstName} {client.LastName} on {start:dddd, MMMM d} from {start:h:mm tt} to {end:h:mm tt}.</p>" +
-                        $"<p>View your schedule here: <a href=\"{providerDashboardUrl}\">{providerDashboardUrl}</a></p>");
-                }
-            }
-
+            // No Appointment row is created here at all - nothing goes into
+            // the database until Stripe actually confirms payment succeeded
+            // (see StripeWebhookEndpoints.MarkAppointmentPaidAsync). The full
+            // booking is carried as Stripe session metadata instead, so an
+            // abandoned or failed checkout leaves zero trace in the DB.
             var returnUrl = new Uri(new Uri(NavigationManager.BaseUri), "/book/payment-complete");
-            var session = await StripeCheckout.CreateEmbeddedSessionAsync(service.Name, service.Price, appointment.Id, returnUrl);
-
-            appointment.StripeCheckoutSessionId = session.Id;
-            await db.SaveChangesAsync();
+            var bookingMetadata = new Dictionary<string, string>
+            {
+                ["clientId"] = client.Id.ToString(),
+                ["serviceId"] = service.Id.ToString(),
+                // Deliberately 0 ("no preference"), not the provider found
+                // just now, when the client didn't request a specific one -
+                // otherwise this would lock in whichever provider happened
+                // to be first here, and the load-balanced assignment the
+                // webhook does at actual payment time (see
+                // StripeWebhookEndpoints.MarkAppointmentPaidAsync) would
+                // never run since it treats a nonzero providerId as a hard
+                // request.
+                ["providerId"] = (selectedProviderId != 0 ? assignedProviderId ?? 0 : 0).ToString(),
+                ["startTime"] = start.ToString("O"),
+                ["endTime"] = end.ToString("O"),
+            };
+            var session = await StripeCheckout.CreateEmbeddedSessionAsync(service.Name, service.Price, returnUrl, bookingMetadata);
 
             checkoutClientSecret = session.ClientSecret;
             checkoutMounted = false;
             awaitingPayment = true;
+            step = 4;
         }
         finally
         {
             creatingCheckout = false;
+        }
+    }
+
+    private async Task GoBackToReview()
+    {
+        awaitingPayment = false;
+        checkoutMounted = false;
+        checkoutClientSecret = null;
+        step = 3;
+
+        if (stripeModule is not null)
+        {
+            await stripeModule.InvokeVoidAsync("destroyCheckout");
         }
     }
 

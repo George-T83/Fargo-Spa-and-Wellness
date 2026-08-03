@@ -3,6 +3,7 @@ using System;
 using Family_and_Spa_Wellness.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Family_and_Spa_Wellness.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260802214158_AlignServiceCatalogWithDoc")]
+    partial class AlignServiceCatalogWithDoc
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -558,9 +561,6 @@ namespace Family_and_Spa_Wellness.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("NotifyByEmail")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -588,7 +588,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "sarah.mitchell@example.com",
                             FirstName = "Sarah",
                             LastName = "Mitchell",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0201",
                             Role = "Client"
@@ -600,7 +599,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "james.whitfield@example.com",
                             FirstName = "James",
                             LastName = "Whitfield",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0202",
                             Role = "Client"
@@ -612,7 +610,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "priya.anand@example.com",
                             FirstName = "Priya",
                             LastName = "Anand",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0203",
                             Role = "Client"
@@ -624,7 +621,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "lena.fischer@example.com",
                             FirstName = "Lena",
                             LastName = "Fischer",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0301",
                             Role = "Client"
@@ -636,7 +632,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "robert.chen@example.com",
                             FirstName = "Robert",
                             LastName = "Chen",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0302",
                             Role = "Client"
@@ -648,7 +643,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "megan.delgado@example.com",
                             FirstName = "Megan",
                             LastName = "Delgado",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0303",
                             Role = "Client"
@@ -660,7 +654,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "tobias.brandt@example.com",
                             FirstName = "Tobias",
                             LastName = "Brandt",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0304",
                             Role = "Client"
@@ -672,7 +665,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "yuki.tanaka@example.com",
                             FirstName = "Yuki",
                             LastName = "Tanaka",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0305",
                             Role = "Client"
@@ -684,7 +676,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "devon.cole@example.com",
                             FirstName = "Devon",
                             LastName = "Cole",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0401",
                             Role = "Provider"
@@ -696,7 +687,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "priya.raman@example.com",
                             FirstName = "Priya",
                             LastName = "Raman",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0402",
                             Role = "Provider"
@@ -708,7 +698,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "marcus.whitfield@example.com",
                             FirstName = "Marcus",
                             LastName = "Whitfield",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0403",
                             Role = "Provider"
@@ -720,7 +709,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "sofia.lindqvist@example.com",
                             FirstName = "Sofia",
                             LastName = "Lindqvist",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0404",
                             Role = "Provider"

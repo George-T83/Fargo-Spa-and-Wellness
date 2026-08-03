@@ -8,6 +8,7 @@
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject StripeCheckoutService StripeCheckout
 @inject IEmailSender EmailSender
+@inject NavigationManager NavigationManager
 
 <PageTitle>Payment Complete - Fargo Spa and Wellness</PageTitle>
 
@@ -17,6 +18,15 @@
         {
             <p>Loading...</p>
         }
+        else if (!paid)
+        {
+            <div class="auth-card">
+                <div class="alert alert-danger" role="alert">
+                    Payment wasn't completed (@(paymentStatus ?? "unknown")). No appointment was created - please go back and try booking again.
+                </div>
+                <a href="/book" class="btn btn-spa-secondary w-100 mt-3">Back to Booking</a>
+            </div>
+        }
         else if (appointment is null)
         {
             <div class="auth-card">
@@ -24,7 +34,7 @@
                 <a href="/book" class="btn btn-spa-secondary w-100 mt-3">Back to Booking</a>
             </div>
         }
-        else if (paid)
+        else
         {
             <div class="auth-card" style="text-align:center;">
                 <div class="booking-confirmed-icon">&#10003;</div>
@@ -43,15 +53,6 @@
                     <a href="/dashboard" class="btn btn-spa-primary">View My Dashboard</a>
                     <a href="/" class="btn btn-spa-secondary">Back to Home</a>
                 </div>
-            </div>
-        }
-        else
-        {
-            <div class="auth-card">
-                <div class="alert alert-danger" role="alert">
-                    Payment wasn't completed (@paymentStatus). Your appointment is on hold but not yet paid.
-                </div>
-                <a href="/dashboard" class="btn btn-spa-secondary w-100 mt-3">Go to Dashboard</a>
             </div>
         }
     </div>
@@ -74,27 +75,24 @@
             return;
         }
 
+        var session = await StripeCheckout.GetSessionAsync(SessionId);
+        paymentStatus = session.PaymentStatus;
+        paid = session.PaymentStatus == "paid";
+
+        if (paid)
+        {
+            // Idempotent - the webhook may have already created and paid this
+            // appointment; this is just a same-tab fallback for local dev
+            // where a webhook endpoint isn't configured yet. No Appointment
+            // row exists until this succeeds - see MarkAppointmentPaidAsync.
+            await StripeWebhookEndpoints.MarkAppointmentPaidAsync(session, DbContextFactory, EmailSender, StripeCheckout, new Uri(NavigationManager.BaseUri));
+        }
+
         await using var db = await DbContextFactory.CreateDbContextAsync();
         appointment = await db.Appointments
             .Include(a => a.Client)
             .Include(a => a.Service)
             .FirstOrDefaultAsync(a => a.StripeCheckoutSessionId == SessionId);
-
-        if (appointment is not null)
-        {
-            var session = await StripeCheckout.GetSessionAsync(SessionId);
-            paymentStatus = session.PaymentStatus;
-            paid = session.PaymentStatus == "paid";
-
-            if (paid)
-            {
-                // Idempotent - the webhook may have already marked this paid and
-                // sent the receipt; this is just a same-tab fallback for local dev
-                // where a webhook endpoint isn't configured yet.
-                await StripeWebhookEndpoints.MarkAppointmentPaidAsync(session, DbContextFactory, EmailSender);
-                await db.Entry(appointment).ReloadAsync();
-            }
-        }
 
         loading = false;
     }

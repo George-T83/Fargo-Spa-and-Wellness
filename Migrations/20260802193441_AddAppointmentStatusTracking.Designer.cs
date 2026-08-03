@@ -3,6 +3,7 @@ using System;
 using Family_and_Spa_Wellness.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Family_and_Spa_Wellness.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260802193441_AddAppointmentStatusTracking")]
+    partial class AddAppointmentStatusTracking
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
@@ -162,61 +165,61 @@ namespace Family_and_Spa_Wellness.Migrations
                         {
                             Id = 1,
                             Category = "Massage",
-                            Description = "Targeted pressure on deeper layers of muscle and connective tissue to relieve chronic pain and tightness.",
+                            Description = "Targeted pressure to release deep muscle tension.",
                             DurationMinutes = 90,
                             IsActive = true,
                             Name = "Deep Tissue Massage",
-                            Price = 165m
+                            Price = 145m
                         },
                         new
                         {
                             Id = 2,
                             Category = "Massage",
-                            Description = "A full-body relaxation massage using long, gliding strokes to ease tension and improve circulation. Our most-booked introductory massage.",
+                            Description = "A gentle, flowing massage to ease everyday stress.",
                             DurationMinutes = 60,
                             IsActive = true,
-                            Name = "Swedish Massage",
-                            Price = 120m
+                            Name = "Swedish Relaxation Massage",
+                            Price = 110m
                         },
                         new
                         {
                             Id = 3,
-                            Category = "Body Treatments",
-                            Description = "A detoxifying wrap infused with essential oils to nourish and soften the skin.",
-                            DurationMinutes = 45,
+                            Category = "Body",
+                            Description = "Nourishing botanical wrap with essential oils.",
+                            DurationMinutes = 75,
                             IsActive = true,
                             Name = "Aromatherapy Body Wrap",
-                            Price = 95m
+                            Price = 120m
                         },
                         new
                         {
                             Id = 4,
-                            Category = "Body Treatments",
+                            Category = "Body",
                             Description = "A gentle, all-over exfoliating polish that leaves skin smooth, soft, and radiant.",
-                            DurationMinutes = 60,
+                            DurationMinutes = 50,
                             IsActive = true,
                             Name = "Body Polish & Buff",
-                            Price = 110m
+                            Price = 100m
                         },
                         new
                         {
                             Id = 5,
                             Category = "Facial & Skincare",
-                            Description = "Our customized, multi-step facial designed around your specific skin type and concerns.",
+                            Description = "Customized facial for radiant, glowing skin.",
                             DurationMinutes = 60,
                             IsActive = true,
                             Name = "Signature Facial",
-                            Price = 135m
+                            Price = 95m
                         },
                         new
                         {
                             Id = 6,
                             Category = "Facial & Skincare",
                             Description = "A collagen-boosting treatment targeting fine lines and loss of elasticity.",
-                            DurationMinutes = 75,
+                            DurationMinutes = 60,
                             IsActive = true,
                             Name = "Anti-Aging Collagen Facial",
-                            Price = 160m
+                            Price = 130m
                         },
                         new
                         {
@@ -224,169 +227,19 @@ namespace Family_and_Spa_Wellness.Migrations
                             Category = "Wellness",
                             Description = "A full-body relaxation journey with lavender.",
                             DurationMinutes = 120,
-                            IsActive = false,
+                            IsActive = true,
                             Name = "Lavender Relaxation Ritual",
                             Price = 180m
                         },
                         new
                         {
                             Id = 8,
-                            Category = "Wellness & Add-Ons",
+                            Category = "Wellness",
                             Description = "Add a custom essential oil blend to any massage or body treatment.",
                             DurationMinutes = 15,
                             IsActive = true,
-                            Name = "Aromatherapy Enhancement (Add-On)",
-                            Price = 15m
-                        },
-                        new
-                        {
-                            Id = 9,
-                            Category = "Massage",
-                            Description = "Heated basalt stones placed on key points to melt away tension and restore energy flow, paired with a full-body massage.",
-                            DurationMinutes = 75,
-                            IsActive = true,
-                            Name = "Hot Stone Therapy",
-                            Price = 150m
-                        },
-                        new
-                        {
-                            Id = 10,
-                            Category = "Massage",
-                            Description = "Pressure-point therapy on the feet and hands to restore balance and overall wellbeing.",
-                            DurationMinutes = 45,
-                            IsActive = true,
-                            Name = "Reflexology",
-                            Price = 85m
-                        },
-                        new
-                        {
-                            Id = 11,
-                            Category = "Massage",
-                            Description = "A gentle, side-lying massage tailored to the needs of expecting mothers, easing pregnancy-related tension safely.",
-                            DurationMinutes = 60,
-                            IsActive = true,
-                            Name = "Prenatal Massage",
-                            Price = 130m
-                        },
-                        new
-                        {
-                            Id = 12,
-                            Category = "Massage",
-                            Description = "Side-by-side Swedish massages in our private couples suite, complete with champagne.",
-                            DurationMinutes = 90,
-                            IsActive = true,
-                            Name = "Couples Retreat",
-                            Price = 280m
-                        },
-                        new
-                        {
-                            Id = 13,
-                            Category = "Body Treatments",
-                            Description = "Mineral-rich volcanic mud draws out impurities and leaves skin glowing and refreshed.",
-                            DurationMinutes = 60,
-                            IsActive = true,
-                            Name = "Volcanic Mud Wrap",
-                            Price = 130m
-                        },
-                        new
-                        {
-                            Id = 14,
-                            Category = "Body Treatments",
-                            Description = "A full-body exfoliation using mineral salts to remove dead skin and stimulate circulation.",
-                            DurationMinutes = 45,
-                            IsActive = true,
-                            Name = "Detox Salt Scrub",
-                            Price = 90m
-                        },
-                        new
-                        {
-                            Id = 15,
-                            Category = "Facial & Skincare",
-                            Description = "A quick refresh - cleanse, exfoliate, and hydrate for guests short on time.",
-                            DurationMinutes = 30,
-                            IsActive = true,
-                            Name = "Express Facial",
-                            Price = 70m
-                        },
-                        new
-                        {
-                            Id = 16,
-                            Category = "Facial & Skincare",
-                            Description = "A moisture-replenishing treatment for dry or dehydrated skin, leaving it soft and dewy.",
-                            DurationMinutes = 50,
-                            IsActive = true,
-                            Name = "Hydrating Facial",
-                            Price = 110m
-                        },
-                        new
-                        {
-                            Id = 17,
-                            Category = "Nail Care",
-                            Description = "A nourishing manicure with a moisturizing soak, shaping, cuticle care, and polish.",
-                            DurationMinutes = 30,
-                            IsActive = true,
-                            Name = "Hydrating Manicure",
-                            Price = 55m
-                        },
-                        new
-                        {
-                            Id = 18,
-                            Category = "Nail Care",
-                            Description = "A long-lasting, chip-resistant gel polish manicure with full nail prep.",
-                            DurationMinutes = 45,
-                            IsActive = true,
-                            Name = "Gel Manicure",
-                            Price = 65m
-                        },
-                        new
-                        {
-                            Id = 19,
-                            Category = "Nail Care",
-                            Description = "A relaxing foot soak, exfoliation, nail shaping, and polish.",
-                            DurationMinutes = 45,
-                            IsActive = true,
-                            Name = "Classic Pedicure",
-                            Price = 60m
-                        },
-                        new
-                        {
-                            Id = 20,
-                            Category = "Nail Care",
-                            Description = "An extended pedicure with a warm paraffin treatment and calf massage.",
-                            DurationMinutes = 60,
-                            IsActive = true,
-                            Name = "Deluxe Spa Pedicure",
-                            Price = 85m
-                        },
-                        new
-                        {
-                            Id = 21,
-                            Category = "Wellness & Add-Ons",
-                            Description = "Private access to our dry sauna to relax muscles and promote detoxification.",
-                            DurationMinutes = 30,
-                            IsActive = true,
-                            Name = "Sauna Session",
+                            Name = "Aromatherapy Enhancement",
                             Price = 25m
-                        },
-                        new
-                        {
-                            Id = 22,
-                            Category = "Wellness & Add-Ons",
-                            Description = "Private access to our steam room to open pores and ease respiratory tension.",
-                            DurationMinutes = 30,
-                            IsActive = true,
-                            Name = "Steam Room Access",
-                            Price = 20m
-                        },
-                        new
-                        {
-                            Id = 23,
-                            Category = "Wellness & Add-Ons",
-                            Description = "Add a soothing scalp and head massage to any service.",
-                            DurationMinutes = 15,
-                            IsActive = true,
-                            Name = "Scalp & Head Massage (Add-On)",
-                            Price = 20m
                         });
                 });
 
@@ -558,9 +411,6 @@ namespace Family_and_Spa_Wellness.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("NotifyByEmail")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -588,7 +438,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "sarah.mitchell@example.com",
                             FirstName = "Sarah",
                             LastName = "Mitchell",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0201",
                             Role = "Client"
@@ -600,7 +449,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "james.whitfield@example.com",
                             FirstName = "James",
                             LastName = "Whitfield",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0202",
                             Role = "Client"
@@ -612,7 +460,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "priya.anand@example.com",
                             FirstName = "Priya",
                             LastName = "Anand",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0203",
                             Role = "Client"
@@ -624,7 +471,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "lena.fischer@example.com",
                             FirstName = "Lena",
                             LastName = "Fischer",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0301",
                             Role = "Client"
@@ -636,7 +482,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "robert.chen@example.com",
                             FirstName = "Robert",
                             LastName = "Chen",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0302",
                             Role = "Client"
@@ -648,7 +493,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "megan.delgado@example.com",
                             FirstName = "Megan",
                             LastName = "Delgado",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0303",
                             Role = "Client"
@@ -660,7 +504,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "tobias.brandt@example.com",
                             FirstName = "Tobias",
                             LastName = "Brandt",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0304",
                             Role = "Client"
@@ -672,7 +515,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "yuki.tanaka@example.com",
                             FirstName = "Yuki",
                             LastName = "Tanaka",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0305",
                             Role = "Client"
@@ -684,7 +526,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "devon.cole@example.com",
                             FirstName = "Devon",
                             LastName = "Cole",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0401",
                             Role = "Provider"
@@ -696,7 +537,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "priya.raman@example.com",
                             FirstName = "Priya",
                             LastName = "Raman",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0402",
                             Role = "Provider"
@@ -708,7 +548,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "marcus.whitfield@example.com",
                             FirstName = "Marcus",
                             LastName = "Whitfield",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0403",
                             Role = "Provider"
@@ -720,7 +559,6 @@ namespace Family_and_Spa_Wellness.Migrations
                             Email = "sofia.lindqvist@example.com",
                             FirstName = "Sofia",
                             LastName = "Lindqvist",
-                            NotifyByEmail = true,
                             PasswordHash = "seed-no-login",
                             Phone = "555-0404",
                             Role = "Provider"

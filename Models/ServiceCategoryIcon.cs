@@ -6,8 +6,9 @@ public static class ServiceCategoryIcon
     {
         ["Massage"] = "\U0001F486",
         ["Facial & Skincare"] = "✨",
-        ["Body"] = "\U0001F9D6",
-        ["Wellness"] = "\U0001F33F",
+        ["Body Treatments"] = "\U0001F9D6",
+        ["Nail Care"] = "\U0001F485",
+        ["Wellness & Add-Ons"] = "\U0001F33F",
     };
 
     public static string GetIcon(string category)

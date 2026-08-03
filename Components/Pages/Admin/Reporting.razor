@@ -6,13 +6,16 @@
 @using Family_and_Spa_Wellness.Models
 @using Family_and_Spa_Wellness.Services
 @using Microsoft.EntityFrameworkCore
+@using System.Globalization
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <PageTitle>Reporting - Fargo Spa and Wellness</PageTitle>
 
-<div class="admin-page-header">
-    <h1>Reporting</h1>
-    <p>Booking volume and revenue trends.</p>
+<div class="rpt-header">
+    <div>
+        <h1>Reporting Dashboard</h1>
+        <p>Bookings and revenue analytics over time.</p>
+    </div>
 </div>
 
 @if (report is null)
@@ -21,87 +24,144 @@
 }
 else
 {
-    <div class="admin-range-toggle">
-        <button type="button" class="btn @(selectedRangeDays == 7 ? "btn-spa-primary" : "btn-spa-secondary") btn-sm" @onclick="() => SetRangeAsync(7)">Last 7 days</button>
-        <button type="button" class="btn @(selectedRangeDays == 30 ? "btn-spa-primary" : "btn-spa-secondary") btn-sm" @onclick="() => SetRangeAsync(30)">Last 30 days</button>
-        <button type="button" class="btn @(selectedRangeDays == 90 ? "btn-spa-primary" : "btn-spa-secondary") btn-sm" @onclick="() => SetRangeAsync(90)">Last 90 days</button>
+    <div class="rpt-range-tabs">
+        <button type="button" class="rpt-range-tab @(selectedRangeDays == 7 ? "active" : "")" @onclick="() => SetRangeAsync(7)">Last 7 days</button>
+        <button type="button" class="rpt-range-tab @(selectedRangeDays == 30 ? "active" : "")" @onclick="() => SetRangeAsync(30)">Last 30 days</button>
+        <button type="button" class="rpt-range-tab @(selectedRangeDays == 90 ? "active" : "")" @onclick="() => SetRangeAsync(90)">Last 90 days</button>
     </div>
 
-    <div class="admin-stat-grid">
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">@report.TotalBookings</div>
-            <div class="admin-stat-label">Total Bookings</div>
+    <div class="rpt-stat-grid">
+        <div class="rpt-stat-card">
+            <div class="rpt-stat-top">
+                <span class="rpt-stat-icon">📅</span>
+                @if (report.BookingsDeltaPercent is not null)
+                {
+                    <span class="rpt-stat-delta @(report.BookingsDeltaPercent >= 0 ? "up" : "down")">@FormatDelta(report.BookingsDeltaPercent.Value)</span>
+                }
+            </div>
+            <div class="rpt-stat-value">@report.TotalBookings</div>
+            <div class="rpt-stat-label">Total bookings</div>
         </div>
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">@report.CompletedBookings <span style="font-size:1rem;">(@report.CompletedPercentage.ToString("0")%)</span></div>
-            <div class="admin-stat-label">Completed</div>
+        <div class="rpt-stat-card">
+            <div class="rpt-stat-top">
+                <span class="rpt-stat-icon">✅</span>
+            </div>
+            <div class="rpt-stat-value">@report.CompletedBookings</div>
+            <div class="rpt-stat-label">Completed &middot; @report.CompletedPercentage.ToString("0")% completion</div>
         </div>
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">@report.TotalRevenue.ToString("C")</div>
-            <div class="admin-stat-label">Revenue</div>
+        <div class="rpt-stat-card">
+            <div class="rpt-stat-top">
+                <span class="rpt-stat-icon">💲</span>
+            </div>
+            <div class="rpt-stat-value">@report.TotalRevenue.ToString("C")</div>
+            <div class="rpt-stat-label">Revenue</div>
         </div>
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">@report.UniqueClients</div>
-            <div class="admin-stat-label">Unique Clients</div>
+        <div class="rpt-stat-card">
+            <div class="rpt-stat-top">
+                <span class="rpt-stat-icon">👥</span>
+            </div>
+            <div class="rpt-stat-value">@report.UniqueClients</div>
+            <div class="rpt-stat-label">Unique clients</div>
         </div>
     </div>
 
-    <h2 class="admin-section-title">Bookings over time</h2>
-    @if (report.Trend.Count == 0)
-    {
-        <div class="admin-coming-soon">
-            <p>No bookings in this period.</p>
-        </div>
-    }
-    else
-    {
-        <div class="admin-table-wrap mb-4">
+    <div class="rpt-card mt-4">
+        <h3 class="rpt-card-title">📈 Bookings over time</h3>
+        @if (report.Trend.Count == 0)
+        {
+            <div class="admin-coming-soon">
+                <p>No bookings in this period.</p>
+            </div>
+        }
+        else
+        {
             <div class="admin-trend-chart">
                 @foreach (var point in report.Trend)
                 {
                     <div class="admin-trend-bar" title="@($"{point.Label}: {point.Count} booking(s)")">
                         <div class="admin-trend-bar-fill" style="height:@(point.HeightPercent.ToString("0.##"))%"></div>
-                        @if (point.ShowLabel)
-                        {
-                            <span class="admin-trend-bar-label">@point.Label</span>
-                        }
+                        <span class="admin-trend-bar-label">@(point.ShowLabel ? point.Label : "")</span>
                     </div>
                 }
             </div>
-        </div>
-    }
+        }
+    </div>
 
-    <h2 class="admin-section-title">Top services by revenue</h2>
-    @if (report.TopServices.Count == 0)
-    {
-        <div class="admin-coming-soon">
-            <p>No bookings in this period.</p>
+    <div class="rpt-two-col mt-4">
+        <div class="rpt-card">
+            <h3 class="rpt-card-title">💲 Revenue trend</h3>
+            @if (report.RevenueTrend.Count == 0)
+            {
+                <div class="admin-coming-soon">
+                    <p>No revenue in this period.</p>
+                </div>
+            }
+            else
+            {
+                <svg viewBox="0 0 100 40" preserveAspectRatio="none" class="rpt-line-chart">
+                    <polyline points="@RevenueTrendPoints" fill="none" stroke="var(--spa-sand-600)" stroke-width="1.2" vector-effect="non-scaling-stroke" />
+                </svg>
+                <div class="rpt-line-labels">
+                    <span>@report.RevenueTrend.First().Label</span>
+                    <span>@report.RevenueTrend.Last().Label</span>
+                </div>
+            }
         </div>
-    }
-    else
-    {
-        <div class="admin-table-wrap">
-            <table class="admin-table">
-                <thead>
-                    <tr>
-                        <th>Service</th>
-                        <th>Bookings</th>
-                        <th>Revenue</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var svc in report.TopServices)
-                    {
-                        <tr>
-                            <td>@svc.ServiceName</td>
-                            <td>@svc.BookingCount</td>
-                            <td>@svc.Revenue.ToString("C")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+
+        <div class="rpt-card">
+            <h3 class="rpt-card-title">Appointment status</h3>
+            @if (report.StatusBreakdown.All(s => s.Count == 0))
+            {
+                <div class="admin-coming-soon">
+                    <p>No bookings in this period.</p>
+                </div>
+            }
+            else
+            {
+                <div class="rpt-donut-wrap">
+                    <div class="rpt-donut" style="background: conic-gradient(@DonutGradient)"></div>
+                    <ul class="admin-donut-legend">
+                        @foreach (var slice in report.StatusBreakdown)
+                        {
+                            <li>
+                                <span class="admin-donut-swatch" style="background:var(@slice.ColorVar)"></span>
+                                <span class="admin-donut-legend-label">@slice.Label</span>
+                                <span class="admin-donut-legend-value">@slice.Count</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
         </div>
-    }
+    </div>
+
+    <div class="rpt-card mt-4">
+        <h3 class="rpt-card-title">Top services by revenue</h3>
+        @if (report.TopServices.Count == 0)
+        {
+            <div class="admin-coming-soon">
+                <p>No bookings in this period.</p>
+            </div>
+        }
+        else
+        {
+            <div class="rpt-service-bars">
+                @{ var maxRevenue = report.TopServices.Max(s => s.Revenue); }
+                @foreach (var svc in report.TopServices)
+                {
+                    <div class="rpt-service-row">
+                        <div class="rpt-service-row-top">
+                            <span class="rpt-service-name">@svc.ServiceName</span>
+                            <span class="rpt-service-value">@svc.Revenue.ToString("C") &middot; @svc.BookingCount appt@(svc.BookingCount == 1 ? "" : "s")</span>
+                        </div>
+                        <div class="rpt-service-bar-track">
+                            <div class="rpt-service-bar-fill" style="width:@((maxRevenue == 0 ? 0 : svc.Revenue / maxRevenue * 100).ToString("0.##"))%"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
 }
 
 @code {
@@ -109,15 +169,25 @@ else
     private ReportData? report;
 
     private record TrendPoint(string Label, int Count, double HeightPercent, bool ShowLabel);
+    private record RevenuePoint(string Label, decimal Revenue);
     private record ServiceRevenue(string ServiceName, int BookingCount, decimal Revenue);
+    // ColorVar names a CSS custom property (see app.css) rather than a hex
+    // directly, so the status→color mapping lives in one place. These map
+    // to the dataviz status palette - good/warning/critical/neutral - not
+    // generic categorical colors, because the slices genuinely mean
+    // good/bad outcomes, not just "series 4".
+    private record StatusSlice(string Label, int Count, double Percent, string ColorVar, string HexColor);
     private record ReportData(
         int TotalBookings,
         int CompletedBookings,
         double CompletedPercentage,
         decimal TotalRevenue,
         int UniqueClients,
+        double? BookingsDeltaPercent,
         List<TrendPoint> Trend,
-        List<ServiceRevenue> TopServices);
+        List<RevenuePoint> RevenueTrend,
+        List<ServiceRevenue> TopServices,
+        List<StatusSlice> StatusBreakdown);
 
     protected override async Task OnInitializedAsync()
     {
@@ -144,27 +214,110 @@ else
             .ToListAsync();
 
         var totalBookings = appointments.Count;
-        // "Completed" matches the FSW-19 definition: EndTime < now. There is
-        // no separate status field on Appointment.
-        var completedBookings = appointments.Count(a => a.EndTime < ClinicClock.Now);
+        var completedBookings = appointments.Count(a => a.AppointmentStatus == "Completed");
         var completedPercentage = totalBookings == 0 ? 0 : (double)completedBookings / totalBookings * 100;
-        // Revenue counts every booking in the period regardless of
-        // completion status - it answers "how much business was booked",
-        // not "how much has been delivered so far".
-        var totalRevenue = appointments.Sum(a => a.Service?.Price ?? 0m);
+        // Revenue counts every booking that was actually paid and stayed
+        // paid, regardless of completion status - it answers "how much
+        // business was booked", not "how much has been delivered so far".
+        // Refunded (and never-paid) appointments are excluded, since that
+        // money isn't actually revenue.
+        var paidAppointments = appointments.Where(a => a.PaymentStatus == "Paid").ToList();
+        var totalRevenue = paidAppointments.Sum(a => a.Service?.Price ?? 0m);
         var uniqueClients = appointments.Select(a => a.ClientId).Distinct().Count();
 
-        var trend = BuildTrend(appointments, rangeStart, rangeEnd);
+        // Compare against the immediately preceding period of the same
+        // length, so the "40%" style delta on the stat card means something
+        // rather than being decorative.
+        var priorStart = rangeStart.AddDays(-selectedRangeDays);
+        var priorBookingCount = await db.Appointments.CountAsync(a => a.StartTime >= priorStart && a.StartTime < rangeStart);
+        double? bookingsDelta = priorBookingCount == 0
+            ? null
+            : (totalBookings - priorBookingCount) / (double)priorBookingCount * 100;
 
-        var topServices = appointments
+        var trend = BuildTrend(appointments, rangeStart, rangeEnd);
+        var revenueTrend = BuildRevenueTrend(paidAppointments, rangeStart, rangeEnd);
+
+        var topServices = paidAppointments
             .GroupBy(a => a.Service?.Name ?? "Unknown")
             .Select(g => new ServiceRevenue(g.Key, g.Count(), g.Sum(a => a.Service?.Price ?? 0m)))
             .OrderByDescending(s => s.Revenue)
             .Take(5)
             .ToList();
 
-        report = new ReportData(totalBookings, completedBookings, completedPercentage, totalRevenue, uniqueClients, trend, topServices);
+        var statusBreakdown = BuildStatusBreakdown(appointments, totalBookings);
+
+        report = new ReportData(totalBookings, completedBookings, completedPercentage, totalRevenue, uniqueClients, bookingsDelta, trend, revenueTrend, topServices, statusBreakdown);
     }
+
+    private static List<StatusSlice> BuildStatusBreakdown(List<Appointment> appointments, int totalBookings)
+    {
+        double Pct(int count) => totalBookings == 0 ? 0 : (double)count / totalBookings * 100;
+
+        var completed = appointments.Count(a => a.AppointmentStatus == "Completed");
+        var scheduled = appointments.Count(a => a.AppointmentStatus == "Scheduled");
+        var cancelled = appointments.Count(a => a.AppointmentStatus == "Cancelled");
+        var noShow = appointments.Count(a => a.AppointmentStatus == "NoShow");
+
+        return new List<StatusSlice>
+        {
+            new("Completed", completed, Pct(completed), "--status-good", "#0ca30c"),
+            new("Scheduled", scheduled, Pct(scheduled), "--status-neutral", "#898781"),
+            new("Cancelled", cancelled, Pct(cancelled), "--status-warning", "#fab219"),
+            new("No-Show", noShow, Pct(noShow), "--status-critical", "#d03b3b"),
+        };
+    }
+
+    private string DonutGradient
+    {
+        get
+        {
+            if (report is null)
+            {
+                return string.Empty;
+            }
+
+            var segments = new List<string>();
+            double cursor = 0;
+            foreach (var slice in report.StatusBreakdown.Where(s => s.Count > 0))
+            {
+                var next = cursor + slice.Percent;
+                segments.Add($"{slice.HexColor} {cursor.ToString("0.##", CultureInfo.InvariantCulture)}% {next.ToString("0.##", CultureInfo.InvariantCulture)}%");
+                cursor = next;
+            }
+
+            if (cursor < 100)
+            {
+                segments.Add($"var(--spa-sand-200) {cursor.ToString("0.##", CultureInfo.InvariantCulture)}% 100%");
+            }
+
+            return string.Join(", ", segments);
+        }
+    }
+
+    private string RevenueTrendPoints
+    {
+        get
+        {
+            if (report is null || report.RevenueTrend.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var max = report.RevenueTrend.Max(p => p.Revenue);
+            var count = report.RevenueTrend.Count;
+            var points = report.RevenueTrend.Select((p, i) =>
+            {
+                var x = count == 1 ? 0 : i / (double)(count - 1) * 100;
+                var y = max == 0 ? 40 : 40 - (double)(p.Revenue / max) * 38;
+                return $"{x.ToString("0.##", CultureInfo.InvariantCulture)},{y.ToString("0.##", CultureInfo.InvariantCulture)}";
+            });
+
+            return string.Join(" ", points);
+        }
+    }
+
+    private static string FormatDelta(double percent) =>
+        (percent >= 0 ? "↑ " : "↓ ") + Math.Abs(percent).ToString("0") + "%";
 
     private List<TrendPoint> BuildTrend(List<Appointment> appointments, DateTime rangeStart, DateTime rangeEnd)
     {
@@ -206,6 +359,31 @@ else
                 counts[i],
                 maxCount == 0 ? 0 : (counts[i] == 0 ? 0 : Math.Max(counts[i] / (double)maxCount * 100, 4)),
                 i % labelStep == 0))
+            .ToList();
+    }
+
+    private List<RevenuePoint> BuildRevenueTrend(List<Appointment> paidAppointments, DateTime rangeStart, DateTime rangeEnd)
+    {
+        var bucketLengthDays = selectedRangeDays <= 30 ? 1 : 7;
+        var bucketCount = selectedRangeDays <= 30 ? selectedRangeDays : (selectedRangeDays + 6) / 7;
+
+        var buckets = Enumerable.Range(0, bucketCount)
+            .Select(i => rangeStart.AddDays(i * bucketLengthDays))
+            .ToList();
+
+        return buckets
+            .Select(bucketStart =>
+            {
+                var bucketEnd = bucketStart.AddDays(bucketLengthDays);
+                if (bucketEnd > rangeEnd)
+                {
+                    bucketEnd = rangeEnd;
+                }
+                var revenue = paidAppointments
+                    .Where(a => a.StartTime.Date >= bucketStart && a.StartTime.Date < bucketEnd)
+                    .Sum(a => a.Service?.Price ?? 0m);
+                return new RevenuePoint(bucketStart.ToString("M/d"), revenue);
+            })
             .ToList();
     }
 }

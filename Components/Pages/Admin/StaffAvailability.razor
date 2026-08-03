@@ -1,5 +1,5 @@
 @page "/admin/availability"
-@layout AdminLayout
+@layout EmptyLayout
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = "Provider,Admin")]
 @using Family_and_Spa_Wellness.Data
@@ -10,6 +10,13 @@
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <PageTitle>@(isAdmin ? "Staff Availability" : "My Availability") - Fargo Spa and Wellness</PageTitle>
+
+@* This page serves both Admins (managing any provider) and Providers
+   (managing their own hours) from one component, so the layout has to
+   follow whichever role is actually viewing rather than being pinned to
+   one - a provider clicking through their own portal should never get
+   dropped into the Admin-branded sidebar mid-navigation. *@
+<LayoutView Layout="@(roleResolved ? (isAdmin ? typeof(AdminLayout) : typeof(ProviderLayout)) : typeof(ProviderLayout))">
 
 <div class="admin-page-header">
     <h1>@(isAdmin ? "Staff Availability" : "My Availability")</h1>
@@ -104,11 +111,56 @@
     </div>
 
     <button type="button" class="btn btn-spa-primary mt-3" @onclick="SaveAsync">Save Availability</button>
+
+    <div class="admin-timeoff-section">
+        <h2 class="admin-timeoff-title">Time off</h2>
+        <p class="admin-availability-hint">Block out a vacation, sick day, or any stretch of days - clients won't be able to book @(isAdmin ? "this provider" : "you") during this range, even on days that are normally scheduled.</p>
+
+        @if (timeOffError is not null)
+        {
+            <div class="admin-alert">@timeOffError</div>
+        }
+
+        <div class="admin-timeoff-form">
+            <div class="admin-form-field">
+                <label>From</label>
+                <input type="date" class="admin-role-select" @bind="timeOffStart" />
+            </div>
+            <div class="admin-form-field">
+                <label>To</label>
+                <input type="date" class="admin-role-select" @bind="timeOffEnd" />
+            </div>
+            <button type="button" class="btn btn-spa-secondary" @onclick="AddTimeOffAsync">+ Mark unavailable</button>
+        </div>
+
+        @if (timeOffRanges is null)
+        {
+            <p class="admin-availability-hint">Loading...</p>
+        }
+        else if (timeOffRanges.Count == 0)
+        {
+            <p class="shift-not-scheduled">No time off scheduled.</p>
+        }
+        else
+        {
+            <ul class="admin-timeoff-list">
+                @foreach (var range in timeOffRanges)
+                {
+                    <li @key="range.Start">
+                        <span>@FormatRange(range)</span>
+                        <button type="button" class="shift-remove-btn" title="Remove" @onclick="() => RemoveTimeOffAsync(range)">&times;</button>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
 }
 else if (isAdmin && providers is not null && providers.Count > 0)
 {
     <p>Select a provider above to view their schedule.</p>
 }
+
+</LayoutView>
 
 @code {
     [CascadingParameter]
@@ -121,12 +173,18 @@ else if (isAdmin && providers is not null && providers.Count > 0)
     };
 
     private bool isAdmin;
+    private bool roleResolved;
     private int viewerId;
     private int selectedProviderId;
     private List<User>? providers;
     private Dictionary<DayOfWeek, List<ShiftBlock>>? shiftsByDay;
     private string? statusMessage;
     private List<string> validationErrors = new();
+
+    private List<DateRange>? timeOffRanges;
+    private DateTime timeOffStart = ClinicClock.Today;
+    private DateTime timeOffEnd = ClinicClock.Today;
+    private string? timeOffError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -143,6 +201,7 @@ else if (isAdmin && providers is not null && providers.Count > 0)
         }
 
         isAdmin = authState.User.IsInRole("Admin");
+        roleResolved = true;
 
         if (isAdmin)
         {
@@ -156,6 +215,7 @@ else if (isAdmin && providers is not null && providers.Count > 0)
         {
             selectedProviderId = viewerId;
             await LoadShiftsAsync();
+            await LoadTimeOffAsync();
         }
     }
 
@@ -166,7 +226,9 @@ else if (isAdmin && providers is not null && providers.Count > 0)
             selectedProviderId = newProviderId;
             statusMessage = null;
             validationErrors.Clear();
+            timeOffError = null;
             await LoadShiftsAsync();
+            await LoadTimeOffAsync();
         }
     }
 
@@ -271,6 +333,96 @@ else if (isAdmin && providers is not null && providers.Count > 0)
         statusMessage = isAdmin ? "That provider's availability has been saved." : "Your weekly availability has been saved.";
         await LoadShiftsAsync();
     }
+
+    private async Task LoadTimeOffAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var blockedDates = await db.ProviderAvailability
+            .Where(a => a.ProviderId == selectedProviderId && !a.IsAvailable)
+            .Select(a => a.Date)
+            .OrderBy(d => d)
+            .ToListAsync();
+
+        // Rows are stored one-per-date, but a multi-day range read back as
+        // a wall of consecutive dates isn't useful to look at - collapse
+        // runs of consecutive dates back into ranges for display.
+        var ranges = new List<DateRange>();
+        foreach (var date in blockedDates)
+        {
+            if (ranges.Count > 0 && ranges[^1].End.AddDays(1) == date)
+            {
+                ranges[^1] = ranges[^1] with { End = date };
+            }
+            else
+            {
+                ranges.Add(new DateRange(date, date));
+            }
+        }
+
+        timeOffRanges = ranges;
+    }
+
+    private async Task AddTimeOffAsync()
+    {
+        timeOffError = null;
+
+        if (timeOffEnd.Date < timeOffStart.Date)
+        {
+            timeOffError = "The end date must be on or after the start date.";
+            return;
+        }
+
+        if ((timeOffEnd.Date - timeOffStart.Date).TotalDays > 365)
+        {
+            timeOffError = "That range is too long - please split it into shorter stretches.";
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+
+        for (var date = timeOffStart.Date; date <= timeOffEnd.Date; date = date.AddDays(1))
+        {
+            var existing = await db.ProviderAvailability
+                .FirstOrDefaultAsync(a => a.ProviderId == selectedProviderId && a.Date == date);
+
+            if (existing is null)
+            {
+                db.ProviderAvailability.Add(new ProviderAvailability
+                {
+                    ProviderId = selectedProviderId,
+                    Date = date,
+                    IsAvailable = false,
+                });
+            }
+            else
+            {
+                existing.IsAvailable = false;
+            }
+        }
+
+        await db.SaveChangesAsync();
+        statusMessage = isAdmin ? "That provider's time off has been saved." : "Your time off has been saved.";
+        await LoadTimeOffAsync();
+    }
+
+    private async Task RemoveTimeOffAsync(DateRange range)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var rows = await db.ProviderAvailability
+            .Where(a => a.ProviderId == selectedProviderId && !a.IsAvailable && a.Date >= range.Start && a.Date <= range.End)
+            .ToListAsync();
+
+        db.ProviderAvailability.RemoveRange(rows);
+        await db.SaveChangesAsync();
+        await LoadTimeOffAsync();
+    }
+
+    private static string FormatRange(DateRange range) =>
+        range.Start == range.End
+            ? range.Start.ToString("ddd, MMM d, yyyy")
+            : $"{range.Start:ddd, MMM d, yyyy} - {range.End:ddd, MMM d, yyyy}";
+
+    private record DateRange(DateTime Start, DateTime End);
 
     private class ShiftBlock
     {

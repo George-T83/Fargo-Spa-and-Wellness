@@ -68,15 +68,35 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(ps => ps.ProviderId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Canonical catalog per the Requirements and Design doc's Appendix
+        // ("Service Catalog, Pricing & Business Policies" - the single source
+        // of truth for FSW-7/FSW-8/FSW-22). Id 7 (Lavender Relaxation Ritual)
+        // predates that doc and isn't in it, so it's deactivated rather than
+        // deleted to avoid breaking any appointment history referencing it.
         modelBuilder.Entity<Service>().HasData(
-            new Service { Id = 1, Name = "Deep Tissue Massage", Category = "Massage", Description = "Targeted pressure to release deep muscle tension.", DurationMinutes = 90, Price = 145m, IsActive = true },
-            new Service { Id = 2, Name = "Swedish Relaxation Massage", Category = "Massage", Description = "A gentle, flowing massage to ease everyday stress.", DurationMinutes = 60, Price = 110m, IsActive = true },
-            new Service { Id = 3, Name = "Aromatherapy Body Wrap", Category = "Body", Description = "Nourishing botanical wrap with essential oils.", DurationMinutes = 75, Price = 120m, IsActive = true },
-            new Service { Id = 4, Name = "Body Polish & Buff", Category = "Body", Description = "A gentle, all-over exfoliating polish that leaves skin smooth, soft, and radiant.", DurationMinutes = 50, Price = 100m, IsActive = true },
-            new Service { Id = 5, Name = "Signature Facial", Category = "Facial & Skincare", Description = "Customized facial for radiant, glowing skin.", DurationMinutes = 60, Price = 95m, IsActive = true },
-            new Service { Id = 6, Name = "Anti-Aging Collagen Facial", Category = "Facial & Skincare", Description = "A collagen-boosting treatment targeting fine lines and loss of elasticity.", DurationMinutes = 60, Price = 130m, IsActive = true },
-            new Service { Id = 7, Name = "Lavender Relaxation Ritual", Category = "Wellness", Description = "A full-body relaxation journey with lavender.", DurationMinutes = 120, Price = 180m, IsActive = true },
-            new Service { Id = 8, Name = "Aromatherapy Enhancement", Category = "Wellness", Description = "Add a custom essential oil blend to any massage or body treatment.", DurationMinutes = 15, Price = 25m, IsActive = true }
+            new Service { Id = 1, Name = "Deep Tissue Massage", Category = "Massage", Description = "Targeted pressure on deeper layers of muscle and connective tissue to relieve chronic pain and tightness.", DurationMinutes = 90, Price = 165m, IsActive = true },
+            new Service { Id = 2, Name = "Swedish Massage", Category = "Massage", Description = "A full-body relaxation massage using long, gliding strokes to ease tension and improve circulation. Our most-booked introductory massage.", DurationMinutes = 60, Price = 120m, IsActive = true },
+            new Service { Id = 3, Name = "Aromatherapy Body Wrap", Category = "Body Treatments", Description = "A detoxifying wrap infused with essential oils to nourish and soften the skin.", DurationMinutes = 45, Price = 95m, IsActive = true },
+            new Service { Id = 4, Name = "Body Polish & Buff", Category = "Body Treatments", Description = "A gentle, all-over exfoliating polish that leaves skin smooth, soft, and radiant.", DurationMinutes = 60, Price = 110m, IsActive = true },
+            new Service { Id = 5, Name = "Signature Facial", Category = "Facial & Skincare", Description = "Our customized, multi-step facial designed around your specific skin type and concerns.", DurationMinutes = 60, Price = 135m, IsActive = true },
+            new Service { Id = 6, Name = "Anti-Aging Collagen Facial", Category = "Facial & Skincare", Description = "A collagen-boosting treatment targeting fine lines and loss of elasticity.", DurationMinutes = 75, Price = 160m, IsActive = true },
+            new Service { Id = 7, Name = "Lavender Relaxation Ritual", Category = "Wellness", Description = "A full-body relaxation journey with lavender.", DurationMinutes = 120, Price = 180m, IsActive = false },
+            new Service { Id = 8, Name = "Aromatherapy Enhancement (Add-On)", Category = "Wellness & Add-Ons", Description = "Add a custom essential oil blend to any massage or body treatment.", DurationMinutes = 15, Price = 15m, IsActive = true },
+            new Service { Id = 9, Name = "Hot Stone Therapy", Category = "Massage", Description = "Heated basalt stones placed on key points to melt away tension and restore energy flow, paired with a full-body massage.", DurationMinutes = 75, Price = 150m, IsActive = true },
+            new Service { Id = 10, Name = "Reflexology", Category = "Massage", Description = "Pressure-point therapy on the feet and hands to restore balance and overall wellbeing.", DurationMinutes = 45, Price = 85m, IsActive = true },
+            new Service { Id = 11, Name = "Prenatal Massage", Category = "Massage", Description = "A gentle, side-lying massage tailored to the needs of expecting mothers, easing pregnancy-related tension safely.", DurationMinutes = 60, Price = 130m, IsActive = true },
+            new Service { Id = 12, Name = "Couples Retreat", Category = "Massage", Description = "Side-by-side Swedish massages in our private couples suite, complete with champagne.", DurationMinutes = 90, Price = 280m, IsActive = true },
+            new Service { Id = 13, Name = "Volcanic Mud Wrap", Category = "Body Treatments", Description = "Mineral-rich volcanic mud draws out impurities and leaves skin glowing and refreshed.", DurationMinutes = 60, Price = 130m, IsActive = true },
+            new Service { Id = 14, Name = "Detox Salt Scrub", Category = "Body Treatments", Description = "A full-body exfoliation using mineral salts to remove dead skin and stimulate circulation.", DurationMinutes = 45, Price = 90m, IsActive = true },
+            new Service { Id = 15, Name = "Express Facial", Category = "Facial & Skincare", Description = "A quick refresh - cleanse, exfoliate, and hydrate for guests short on time.", DurationMinutes = 30, Price = 70m, IsActive = true },
+            new Service { Id = 16, Name = "Hydrating Facial", Category = "Facial & Skincare", Description = "A moisture-replenishing treatment for dry or dehydrated skin, leaving it soft and dewy.", DurationMinutes = 50, Price = 110m, IsActive = true },
+            new Service { Id = 17, Name = "Hydrating Manicure", Category = "Nail Care", Description = "A nourishing manicure with a moisturizing soak, shaping, cuticle care, and polish.", DurationMinutes = 30, Price = 55m, IsActive = true },
+            new Service { Id = 18, Name = "Gel Manicure", Category = "Nail Care", Description = "A long-lasting, chip-resistant gel polish manicure with full nail prep.", DurationMinutes = 45, Price = 65m, IsActive = true },
+            new Service { Id = 19, Name = "Classic Pedicure", Category = "Nail Care", Description = "A relaxing foot soak, exfoliation, nail shaping, and polish.", DurationMinutes = 45, Price = 60m, IsActive = true },
+            new Service { Id = 20, Name = "Deluxe Spa Pedicure", Category = "Nail Care", Description = "An extended pedicure with a warm paraffin treatment and calf massage.", DurationMinutes = 60, Price = 85m, IsActive = true },
+            new Service { Id = 21, Name = "Sauna Session", Category = "Wellness & Add-Ons", Description = "Private access to our dry sauna to relax muscles and promote detoxification.", DurationMinutes = 30, Price = 25m, IsActive = true },
+            new Service { Id = 22, Name = "Steam Room Access", Category = "Wellness & Add-Ons", Description = "Private access to our steam room to open pores and ease respiratory tension.", DurationMinutes = 30, Price = 20m, IsActive = true },
+            new Service { Id = 23, Name = "Scalp & Head Massage (Add-On)", Category = "Wellness & Add-Ons", Description = "Add a soothing scalp and head massage to any service.", DurationMinutes = 15, Price = 20m, IsActive = true }
         );
 
         modelBuilder.Entity<User>().HasData(

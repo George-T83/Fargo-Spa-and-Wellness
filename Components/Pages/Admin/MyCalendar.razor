@@ -116,7 +116,7 @@ else
         appointments = await db.Appointments
             .Include(a => a.Client)
             .Include(a => a.Service)
-            .Where(a => a.ProviderId == providerId && a.StartTime >= weekStart && a.StartTime < weekEnd)
+            .Where(a => a.ProviderId == providerId && a.AppointmentStatus != "Cancelled" && a.StartTime >= weekStart && a.StartTime < weekEnd)
             .OrderBy(a => a.StartTime)
             .ToListAsync();
 
