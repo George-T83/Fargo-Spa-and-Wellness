@@ -138,6 +138,17 @@ else
                     }
                 </div>
             }
+
+            @if (editingAppointment.Id != 0 && editingAppointment.AppointmentStatus != "Cancelled")
+            {
+                <div class="admin-service-actions" style="margin-top:0.5rem;">
+                    <span class="admin-status-badge @PaymentBadgeClass(editingAppointment.PaymentStatus)">@(string.IsNullOrEmpty(editingAppointment.PaymentStatus) ? "Unpaid" : editingAppointment.PaymentStatus)</span>
+                    @if (string.IsNullOrEmpty(editingAppointment.PaymentStatus) || editingAppointment.PaymentStatus == "Unpaid")
+                    {
+                        <button type="button" class="btn btn-spa-secondary btn-sm" @onclick="MarkPaidAsync">Mark as paid</button>
+                    }
+                </div>
+            }
         </div>
     }
 
@@ -555,4 +566,36 @@ else
         "NoShow" => "noshow",
         _ => "pending",
     };
+
+    private static string PaymentBadgeClass(string paymentStatus) => paymentStatus switch
+    {
+        "Paid" => "completed",
+        "Refunded" => "noshow",
+        _ => "pending",
+    };
+
+    // For bookings an admin created directly (e.g. a walk-in), rather than
+    // through the client Stripe checkout - there's no Stripe charge behind
+    // these, so this just records that payment was collected some other way
+    // (cash, card reader, etc.) so it correctly counts toward revenue.
+    private async Task MarkPaidAsync()
+    {
+        if (editingAppointment is null || editingAppointment.Id == 0)
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbAppt = await db.Appointments.FirstOrDefaultAsync(a => a.Id == editingAppointment.Id);
+        if (dbAppt is null)
+        {
+            return;
+        }
+
+        dbAppt.PaymentStatus = "Paid";
+        await db.SaveChangesAsync();
+
+        editingAppointment.PaymentStatus = "Paid";
+        statusMessage = "Marked as paid.";
+    }
 }

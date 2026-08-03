@@ -10,50 +10,52 @@
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject AppointmentNotificationService NotificationService
 @inject IJSRuntime JsRuntime
+@inject NavigationManager NavigationManager
 
 <PageTitle>My Dashboard - Fargo Spa and Wellness</PageTitle>
 
 <div class="admin-page-header">
-    <h1>My Dashboard</h1>
-    <p>Your appointments and daily schedule.</p>
+    <h1>Staff Dashboard</h1>
+    <p>Your daily appointments, roster, and client notes.</p>
 </div>
 
-@if (!isAvailableToday.HasValue)
+@if (appointments is null || todaySchedule is null)
 {
     <p>Loading...</p>
 }
 else
 {
-    <div class="admin-quick-card mb-4">
-        <h3>Today's Availability</h3>
-        <p>
-            Status:
-            <strong>@(isAvailableToday.Value ? "Available" : "Unavailable")</strong>
-        </p>
-        <button type="button" class="btn btn-spa-primary" @onclick="ToggleAvailabilityAsync">
-            @(isAvailableToday.Value ? "Mark unavailable" : "Mark available")
-        </button>
-    </div>
-}
+    <div class="staff-dash-top-grid">
+        <div class="staff-dash-welcome-card">
+            <p class="staff-dash-date">@ClinicClock.Today.ToString("MMM d, yyyy")</p>
+            <h2>Welcome back, @firstName</h2>
+            <p class="staff-dash-subline">You have @todayCount appointment@(todayCount == 1 ? "" : "s") today.</p>
+            <div class="staff-dash-pill-row">
+                <div class="staff-dash-pill">
+                    <span class="staff-dash-pill-value">@todayCount</span>
+                    <span class="staff-dash-pill-label">Today's total</span>
+                </div>
+                <div class="staff-dash-pill">
+                    <span class="staff-dash-pill-value">@upcomingCount</span>
+                    <span class="staff-dash-pill-label">Upcoming</span>
+                </div>
+                <div class="staff-dash-pill">
+                    <span class="staff-dash-pill-value">@completedCount</span>
+                    <span class="staff-dash-pill-label">Completed</span>
+                </div>
+            </div>
+        </div>
 
-@if (appointments is null)
-{
-    <p>Loading...</p>
-}
-else
-{
-    <div class="admin-stat-grid">
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">@todayCount</div>
-            <div class="admin-stat-label">Today</div>
-        </div>
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">@upcomingCount</div>
-            <div class="admin-stat-label">Upcoming</div>
-        </div>
-        <div class="admin-stat-card">
-            <div class="admin-stat-value">@completedCount</div>
-            <div class="admin-stat-label">Completed</div>
+        <div class="staff-dash-availability-card">
+            <p class="staff-dash-avail-label">Today's availability</p>
+            <p class="staff-dash-avail-status">
+                <span class="staff-dash-avail-dot @(isWorkingToday ? "available" : "unavailable")"></span>
+                @(isWorkingToday ? "Available" : "Unavailable")
+            </p>
+            <p class="staff-dash-avail-hint">@todaySchedule</p>
+            <button type="button" class="btn btn-spa-secondary w-100" @onclick='() => NavigationManager.NavigateTo("/admin/availability")'>
+                Manage availability
+            </button>
         </div>
     </div>
 
@@ -62,53 +64,142 @@ else
         <div class="admin-alert">@statusMessage</div>
     }
 
-    @if (appointments.Count == 0)
-    {
-        <div class="admin-coming-soon">
-            <p>No appointments assigned to you yet.</p>
+    <div class="staff-dash-card mt-4">
+        <div class="staff-dash-card-header">
+            <h3>Today's Appointments</h3>
+            <span class="staff-dash-count-badge">@todaysAppointments.Count total</span>
         </div>
-    }
-    else
-    {
-        <div class="admin-table-wrap">
-            <table class="admin-table">
-                <thead>
-                    <tr>
-                        <th>Client</th>
-                        <th>Service</th>
-                        <th>Date &amp; Time</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var a in appointments)
-                    {
+
+        @if (todaysAppointments.Count == 0)
+        {
+            <div class="admin-coming-soon">
+                <p>No appointments scheduled for today.</p>
+            </div>
+        }
+        else
+        {
+            <div class="staff-dash-appt-list">
+                @foreach (var a in todaysAppointments)
+                {
+                    <div class="staff-dash-appt-row @(conflictIds.Contains(a.Id) ? "conflict" : "")">
+                        <div class="staff-dash-appt-time">
+                            <span class="staff-dash-appt-time-main">@a.StartTime.ToString("h:mm tt")</span>
+                            <span class="staff-dash-appt-time-end">@a.EndTime.ToString("h:mm tt")</span>
+                        </div>
+                        <div class="staff-dash-appt-info">
+                            <div class="staff-dash-appt-title-row">
+                                <span class="staff-dash-appt-service">@a.Service?.Name</span>
+                                @if (conflictIds.Contains(a.Id))
+                                {
+                                    <span class="staff-dash-conflict-tag">⚠ Conflict</span>
+                                }
+                            </div>
+                            <span class="staff-dash-appt-client">👤 @a.Client?.FullName</span>
+                        </div>
+                        <div class="staff-dash-appt-actions">
+                            @if (a.StartTime > ClinicClock.Now)
+                            {
+                                <span class="admin-status-badge pending">scheduled</span>
+                            }
+                            else if (a.AppointmentStatus == "Scheduled")
+                            {
+                                <button type="button" class="btn btn-spa-primary btn-sm" @onclick='() => MarkOutcomeAsync(a, "Completed")'>Mark Complete</button>
+                                <button type="button" class="btn-reject btn-sm" @onclick='() => MarkOutcomeAsync(a, "NoShow")'>No-Show</button>
+                            }
+                            else
+                            {
+                                <span class="admin-status-badge @StatusBadgeClass(a.AppointmentStatus)">@a.AppointmentStatus</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="staff-dash-card mt-4">
+        <div class="staff-dash-card-header">
+            <h3>Client Service Notes</h3>
+            <button type="button" class="btn btn-spa-primary btn-sm" @onclick='() => NavigationManager.NavigateTo("/admin/notes")'>+ Add note</button>
+        </div>
+
+        @if (recentNotes.Count == 0)
+        {
+            <div class="admin-coming-soon">
+                <p>No client notes yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="staff-dash-notes-grid">
+                @foreach (var note in recentNotes)
+                {
+                    <div class="staff-dash-note-card">
+                        <div class="staff-dash-note-top">
+                            <span class="staff-dash-note-tag @note.NoteType.ToLowerInvariant()">@note.NoteType</span>
+                            <span class="staff-dash-note-date">@note.CreatedAt.ToString("MMM d, yyyy")</span>
+                        </div>
+                        <p class="staff-dash-note-client">@note.Client?.FullName</p>
+                        <p class="staff-dash-note-text">@note.NoteText</p>
+                        <p class="staff-dash-note-author">— @note.Author?.FirstName</p>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="staff-dash-card mt-4">
+        <div class="staff-dash-card-header">
+            <h3>All Appointments</h3>
+        </div>
+        @if (appointments.Count == 0)
+        {
+            <div class="admin-coming-soon">
+                <p>No appointments assigned to you yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
                         <tr>
-                            <td>@a.Client?.FullName</td>
-                            <td>@a.Service?.Name</td>
-                            <td>@a.StartTime.ToString("MMM d, yyyy h:mm tt")</td>
-                            <td>
-                                @if (a.StartTime > ClinicClock.Now)
-                                {
-                                    <a href="/reschedule/@a.Id" class="btn btn-spa-secondary btn-sm">Reschedule</a>
-                                    <button type="button" class="btn-reject btn-sm" @onclick="() => ConfirmAndCancelAsync(a)">Cancel</button>
-                                }
-                                else if (a.AppointmentStatus == "Scheduled")
-                                {
-                                    <button type="button" class="btn btn-spa-primary btn-sm" @onclick='() => MarkOutcomeAsync(a, "Completed")'>Mark Complete</button>
-                                    <button type="button" class="btn-reject btn-sm" @onclick='() => MarkOutcomeAsync(a, "NoShow")'>No-Show</button>
-                                }
-                                else
-                                {
-                                    <span class="admin-status-badge @StatusBadgeClass(a.AppointmentStatus)">@a.AppointmentStatus</span>
-                                }
-                            </td>
+                            <th>Client</th>
+                            <th>Service</th>
+                            <th>Date &amp; Time</th>
+                            <th></th>
                         </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
+                    </thead>
+                    <tbody>
+                        @foreach (var a in appointments)
+                        {
+                            <tr>
+                                <td>@a.Client?.FullName</td>
+                                <td>@a.Service?.Name</td>
+                                <td>@a.StartTime.ToString("MMM d, yyyy h:mm tt")</td>
+                                <td>
+                                    @if (a.StartTime > ClinicClock.Now)
+                                    {
+                                        <a href="/reschedule/@a.Id" class="btn btn-spa-secondary btn-sm">Reschedule</a>
+                                        <button type="button" class="btn-reject btn-sm" @onclick="() => ConfirmAndCancelAsync(a)">Cancel</button>
+                                    }
+                                    else if (a.AppointmentStatus == "Scheduled")
+                                    {
+                                        <button type="button" class="btn btn-spa-primary btn-sm" @onclick='() => MarkOutcomeAsync(a, "Completed")'>Mark Complete</button>
+                                        <button type="button" class="btn-reject btn-sm" @onclick='() => MarkOutcomeAsync(a, "NoShow")'>No-Show</button>
+                                    }
+                                    else
+                                    {
+                                        <span class="admin-status-badge @StatusBadgeClass(a.AppointmentStatus)">@a.AppointmentStatus</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
 }
 
 @code {
@@ -116,11 +207,16 @@ else
     private Task<AuthenticationState>? AuthStateTask { get; set; }
 
     private int providerId;
+    private string firstName = "there";
     private List<Appointment>? appointments;
+    private List<Appointment> todaysAppointments = new();
+    private HashSet<int> conflictIds = new();
+    private List<ServiceNote> recentNotes = new();
     private int todayCount;
     private int upcomingCount;
     private int completedCount;
-    private bool? isAvailableToday;
+    private string? todaySchedule;
+    private bool isWorkingToday;
     private string? statusMessage;
 
     protected override async Task OnInitializedAsync()
@@ -137,15 +233,74 @@ else
             return;
         }
 
-        await LoadAppointmentsAsync();
+        firstName = authState.User.Identity?.Name?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "there";
 
+        await LoadAppointmentsAsync();
+        await LoadTodayScheduleAsync();
+        await LoadRecentNotesAsync();
+    }
+
+    private async Task LoadRecentNotesAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var todaysClientIds = todaysAppointments.Select(a => a.ClientId).Distinct().ToList();
+
+        recentNotes = await db.ServiceNotes
+            .Include(n => n.Client)
+            .Include(n => n.Author)
+            .Where(n => n.AuthorId == providerId || todaysClientIds.Contains(n.ClientId))
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(4)
+            .ToListAsync();
+    }
+
+    // Reads the same ProviderShift/ProviderAvailability data the My
+    // Availability page manages, instead of the dashboard keeping its own
+    // separate "available today" toggle - that duplicate write path let the
+    // dashboard's quick-toggle silently clobber a multi-day time-off range
+    // set from My Availability (and vice versa), since both wrote the same
+    // row without either side knowing about the other's intent.
+    private async Task LoadTodayScheduleAsync()
+    {
         await using var db = await DbContextFactory.CreateDbContextAsync();
 
-        // No row for today means available by default - see ProviderAvailability.cs.
-        var todayRow = await db.ProviderAvailability
-            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == ClinicClock.Today);
-        isAvailableToday = todayRow?.IsAvailable ?? true;
+        var timeOff = await db.ProviderAvailability
+            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == ClinicClock.Today && !pa.IsAvailable);
+
+        if (timeOff is not null)
+        {
+            todaySchedule = "You're marked as time off today.";
+            isWorkingToday = false;
+            return;
+        }
+
+        var shiftsToday = (await db.ProviderShifts
+            .Where(s => s.ProviderId == providerId && s.DayOfWeek == ClinicClock.Today.DayOfWeek)
+            .ToListAsync())
+            .OrderBy(s => s.StartTime)
+            .ToList();
+
+        var hasAnyShift = await db.ProviderShifts.AnyAsync(s => s.ProviderId == providerId);
+
+        if (shiftsToday.Count > 0)
+        {
+            todaySchedule = "Working today: " + string.Join(", ", shiftsToday.Select(s => $"{FormatTime(s.StartTime)}–{FormatTime(s.EndTime)}"));
+            isWorkingToday = true;
+        }
+        else if (hasAnyShift)
+        {
+            todaySchedule = "Not scheduled to work today.";
+            isWorkingToday = false;
+        }
+        else
+        {
+            todaySchedule = "No weekly hours set yet - clients can book you any time during business hours.";
+            isWorkingToday = true;
+        }
     }
+
+    private static string FormatTime(TimeSpan time) =>
+        DateTime.Today.Add(time).ToString("h:mm tt");
 
     private async Task LoadAppointmentsAsync()
     {
@@ -163,6 +318,27 @@ else
         todayCount = appointments.Count(a => a.StartTime.Date == ClinicClock.Today);
         upcomingCount = appointments.Count(a => a.StartTime > ClinicClock.Now);
         completedCount = appointments.Count(a => a.AppointmentStatus == "Completed");
+
+        todaysAppointments = appointments.Where(a => a.StartTime.Date == ClinicClock.Today).ToList();
+
+        // Booking already prevents double-assigning this provider, so this
+        // should normally be empty - it's a display-only safety net in case
+        // data ever gets into that state some other way (e.g. an admin
+        // override on the Master Calendar).
+        conflictIds = new HashSet<int>();
+        for (var i = 0; i < todaysAppointments.Count; i++)
+        {
+            for (var j = i + 1; j < todaysAppointments.Count; j++)
+            {
+                var a = todaysAppointments[i];
+                var b = todaysAppointments[j];
+                if (a.StartTime < b.EndTime && b.StartTime < a.EndTime)
+                {
+                    conflictIds.Add(a.Id);
+                    conflictIds.Add(b.Id);
+                }
+            }
+        }
     }
 
     private static string StatusBadgeClass(string status) => status switch
@@ -217,34 +393,4 @@ else
         await LoadAppointmentsAsync();
     }
 
-    private async Task ToggleAvailabilityAsync()
-    {
-        if (isAvailableToday is null)
-        {
-            return;
-        }
-
-        var newValue = !isAvailableToday.Value;
-
-        await using var db = await DbContextFactory.CreateDbContextAsync();
-        var todayRow = await db.ProviderAvailability
-            .FirstOrDefaultAsync(pa => pa.ProviderId == providerId && pa.Date == ClinicClock.Today);
-
-        if (todayRow is null)
-        {
-            db.ProviderAvailability.Add(new ProviderAvailability
-            {
-                ProviderId = providerId,
-                Date = ClinicClock.Today,
-                IsAvailable = newValue,
-            });
-        }
-        else
-        {
-            todayRow.IsAvailable = newValue;
-        }
-
-        await db.SaveChangesAsync();
-        isAvailableToday = newValue;
-    }
 }

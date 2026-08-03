@@ -463,59 +463,6 @@
         await LoadSlotsAsync();
     }
 
-    // A provider who has never touched their availability settings has no
-    // ProviderShift rows at all - treat them as available every day (the
-    // pre-existing behavior) rather than accidentally locking every
-    // never-configured provider out of bookings entirely. Once a provider
-    // has set up at least one shift, days with no shift row for them are
-    // real days off.
-    private static async Task<ProviderSchedule> LoadProviderScheduleAsync(AppDbContext db, List<int> providerIds, DateTime date)
-    {
-        if (providerIds.Count == 0)
-        {
-            return new ProviderSchedule(new List<ProviderShift>(), new HashSet<int>(), new HashSet<int>());
-        }
-
-        var dayOfWeek = date.DayOfWeek;
-        var shiftsToday = await db.ProviderShifts
-            .Where(s => providerIds.Contains(s.ProviderId) && s.DayOfWeek == dayOfWeek)
-            .ToListAsync();
-
-        var providersWithAnyShift = await db.ProviderShifts
-            .Where(s => providerIds.Contains(s.ProviderId))
-            .Select(s => s.ProviderId)
-            .Distinct()
-            .ToListAsync();
-
-        var unavailableToday = await db.ProviderAvailability
-            .Where(a => providerIds.Contains(a.ProviderId) && a.Date == date && !a.IsAvailable)
-            .Select(a => a.ProviderId)
-            .ToListAsync();
-
-        return new ProviderSchedule(shiftsToday, providersWithAnyShift.ToHashSet(), unavailableToday.ToHashSet());
-    }
-
-    private record ProviderSchedule(List<ProviderShift> ShiftsToday, HashSet<int> ProvidersWithAnyShift, HashSet<int> UnavailableToday)
-    {
-        public bool IsWorking(int providerId, DateTime start, DateTime end)
-        {
-            if (UnavailableToday.Contains(providerId))
-            {
-                return false;
-            }
-
-            var todaysShifts = ShiftsToday.Where(s => s.ProviderId == providerId).ToList();
-            if (todaysShifts.Count == 0)
-            {
-                // Never configured any shifts anywhere -> default available. Has
-                // shifts on other days but none today -> today is a day off.
-                return !ProvidersWithAnyShift.Contains(providerId);
-            }
-
-            return todaysShifts.Any(s => start.TimeOfDay >= s.StartTime && end.TimeOfDay <= s.EndTime);
-        }
-    }
-
     private async Task LoadSlotsAsync()
     {
         slots = new List<TimeSlot>();
@@ -541,7 +488,7 @@
         var dayEnd = dayStart.AddDays(1);
 
         var candidateProviderIds = (selectedProviderId != 0 ? new List<int> { selectedProviderId } : providers.Select(p => p.Id)).ToList();
-        var schedule = await LoadProviderScheduleAsync(db, candidateProviderIds, dayStart);
+        var schedule = await ProviderScheduleService.LoadAsync(db, candidateProviderIds, dayStart);
 
         // When a specific therapist is requested, only that therapist's
         // bookings block a slot - other therapists can still take clients at
@@ -638,7 +585,7 @@
             var end = start.Add(TimeSpan.FromMinutes(service.DurationMinutes));
 
             var candidateProviderIds = (selectedProviderId != 0 ? new List<int> { selectedProviderId } : providers.Select(p => p.Id)).ToList();
-            var schedule = await LoadProviderScheduleAsync(db, candidateProviderIds, start.Date);
+            var schedule = await ProviderScheduleService.LoadAsync(db, candidateProviderIds, start.Date);
 
             var overlapping = await db.Appointments
                 .Where(a => a.AppointmentStatus != "Cancelled" && a.StartTime < end && start < a.EndTime && a.ProviderId != null)
@@ -681,7 +628,15 @@
             {
                 ["clientId"] = client.Id.ToString(),
                 ["serviceId"] = service.Id.ToString(),
-                ["providerId"] = (assignedProviderId ?? 0).ToString(),
+                // Deliberately 0 ("no preference"), not the provider found
+                // just now, when the client didn't request a specific one -
+                // otherwise this would lock in whichever provider happened
+                // to be first here, and the load-balanced assignment the
+                // webhook does at actual payment time (see
+                // StripeWebhookEndpoints.MarkAppointmentPaidAsync) would
+                // never run since it treats a nonzero providerId as a hard
+                // request.
+                ["providerId"] = (selectedProviderId != 0 ? assignedProviderId ?? 0 : 0).ToString(),
                 ["startTime"] = start.ToString("O"),
                 ["endTime"] = end.ToString("O"),
             };

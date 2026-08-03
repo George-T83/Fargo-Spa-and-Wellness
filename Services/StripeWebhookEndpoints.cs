@@ -90,26 +90,56 @@ public static class StripeWebhookEndpoints
 
         // Re-check the slot at the moment payment actually clears, since time
         // has passed since checkout started and someone else may have taken
-        // it. If it's gone, refund the charge instead of double-booking.
+        // it (or the provider went on time off) - if it's gone, refund the
+        // charge instead of double-booking. This re-check honors weekly
+        // hours and time-off (ProviderScheduleService), not just other
+        // appointments - a provider marking themselves off between checkout
+        // and payment must still block the booking here.
         var overlapping = await db.Appointments
             .Where(a => a.AppointmentStatus != "Cancelled" && a.StartTime < end && start < a.EndTime && a.ProviderId != null)
             .Select(a => a.ProviderId)
             .ToListAsync();
 
+        var candidateProviderIds = requestedProviderId is not null
+            ? new List<int> { requestedProviderId.Value }
+            : (await db.Users.Where(u => u.Role == "Provider").ToListAsync()).Select(p => p.Id).ToList();
+        var schedule = await ProviderScheduleService.LoadAsync(db, candidateProviderIds, start.Date);
+
         int? assignedProviderId;
         bool slotStillAvailable;
         if (requestedProviderId is not null)
         {
-            slotStillAvailable = !overlapping.Contains(requestedProviderId);
+            slotStillAvailable = !overlapping.Contains(requestedProviderId) && schedule.IsWorking(requestedProviderId.Value, start, end);
             assignedProviderId = slotStillAvailable ? requestedProviderId : null;
         }
         else
         {
-            var providers = await db.Users.Where(u => u.Role == "Provider").ToListAsync();
-            assignedProviderId = providers.Count == 0
-                ? null
-                : providers.Select(p => (int?)p.Id).FirstOrDefault(id => !overlapping.Contains(id));
-            slotStillAvailable = providers.Count == 0 || assignedProviderId is not null;
+            // Load-balance across whichever free, scheduled providers exist,
+            // rather than always handing "no preference" bookings to the
+            // same provider (e.g. alphabetically first) - that would let one
+            // provider absorb every walk-in booking while others sit idle.
+            var freeProviderIds = candidateProviderIds
+                .Where(id => !overlapping.Contains(id) && schedule.IsWorking(id, start, end))
+                .ToList();
+
+            if (freeProviderIds.Count == 0)
+            {
+                assignedProviderId = null;
+                slotStillAvailable = candidateProviderIds.Count == 0;
+            }
+            else
+            {
+                var todaysCounts = await db.Appointments
+                    .Where(a => a.AppointmentStatus != "Cancelled" && freeProviderIds.Contains(a.ProviderId ?? 0) && a.StartTime.Date == start.Date)
+                    .GroupBy(a => a.ProviderId)
+                    .Select(g => new { ProviderId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(g => g.ProviderId!.Value, g => g.Count);
+
+                assignedProviderId = freeProviderIds
+                    .OrderBy(id => todaysCounts.GetValueOrDefault(id, 0))
+                    .First();
+                slotStillAvailable = true;
+            }
         }
 
         if (!slotStillAvailable)
@@ -122,6 +152,13 @@ public static class StripeWebhookEndpoints
                 $"<p>We're sorry - the {start:dddd, MMMM d} at {start:h:mm tt} slot for <strong>{service.Name}</strong> was booked by someone else " +
                 "while your payment was processing. You have not been charged; your payment has been fully refunded.</p>" +
                 "<p>Please pick another time to rebook.</p>");
+
+            // The provider being notified here is whoever the client had
+            // hoped to book (if they picked one) - there's no assigned
+            // provider to tell when the client had "no preference" and every
+            // provider turned out to be busy.
+            var conflictedProvider = requestedProviderId is null ? null : await db.Users.FindAsync(requestedProviderId.Value);
+            await NotifyAdminsAndProviderOfRefundAsync(db, emailSender, conflictedProvider, service, start, service.Price, "Slot was taken by another booking while payment was processing.");
             return;
         }
 
@@ -168,6 +205,33 @@ public static class StripeWebhookEndpoints
                 $"<p>You've been assigned a new appointment: <strong>{service.Name}</strong> " +
                 $"with {ClientLine(client)} on {start:dddd, MMMM d} from {start:h:mm tt} to {end:h:mm tt}.</p>" +
                 $"<p>View your schedule here: <a href=\"{providerDashboardUrl}\">{providerDashboardUrl}</a></p>");
+        }
+    }
+
+    // Deliberately doesn't reuse AppointmentNotificationService here - that
+    // service depends on NavigationManager, which is a per-circuit Blazor
+    // service and isn't resolvable from a plain minimal-API request pipeline
+    // like this webhook. Kept as a small local duplicate instead.
+    private static async Task NotifyAdminsAndProviderOfRefundAsync(AppDbContext db, IEmailSender emailSender, User? provider, Family_and_Spa_Wellness.Models.Service? service, DateTime start, decimal amount, string reason)
+    {
+        var serviceName = service?.Name ?? "the treatment";
+        var when = $"{start:dddd, MMMM d} at {start:h:mm tt}";
+        var body = $"<p>A refund of <strong>{amount.ToString("C")}</strong> was issued for a <strong>{serviceName}</strong> appointment scheduled for {when}.</p>" +
+                   $"<p>Reason: {reason}</p>" +
+                   "<p>This amount has been excluded from revenue reporting.</p>";
+
+        if (provider is not null && provider.NotifyByEmail)
+        {
+            await emailSender.SendAsync(provider.Email, "Refund issued - Fargo Spa and Wellness", $"<p>Hi {provider.FirstName},</p>" + body);
+        }
+
+        var admins = await db.Users.Where(u => u.Role == "Admin").ToListAsync();
+        foreach (var admin in admins)
+        {
+            if (admin.NotifyByEmail)
+            {
+                await emailSender.SendAsync(admin.Email, "Refund issued - Fargo Spa and Wellness", $"<p>Hi {admin.FirstName},</p>" + body);
+            }
         }
     }
 

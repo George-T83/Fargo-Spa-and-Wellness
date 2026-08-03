@@ -1,5 +1,7 @@
+using Family_and_Spa_Wellness.Data;
 using Family_and_Spa_Wellness.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.EntityFrameworkCore;
 
 namespace Family_and_Spa_Wellness.Services;
 
@@ -15,7 +17,7 @@ public enum ChangeActor
     Admin,
 }
 
-public class AppointmentNotificationService(IEmailSender emailSender, NavigationManager navigationManager)
+public class AppointmentNotificationService(IEmailSender emailSender, NavigationManager navigationManager, IDbContextFactory<AppDbContext> dbContextFactory)
 {
     private const string BusinessPhone = "(701) 555-0100";
 
@@ -49,6 +51,7 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
                 "An appointment was cancelled - Fargo Spa and Wellness",
                 $"<p>Hi {provider.FirstName},</p>" +
                 $"<p>{ClientLine(client)} cancelled their <strong>{serviceName}</strong> appointment that was scheduled for {when}.</p>" +
+                (refunded ? $"<p>The client's payment of <strong>{service?.Price.ToString("C")}</strong> has been refunded.</p>" : string.Empty) +
                 PortalLink(ProviderPortalUrl));
         }
         else if (actor == ChangeActor.Provider && client is not null)
@@ -84,6 +87,7 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
                     "An appointment was cancelled - Fargo Spa and Wellness",
                     $"<p>Hi {provider.FirstName},</p>" +
                     $"<p>The <strong>{serviceName}</strong> appointment with {ClientLine(client)} scheduled for {when} has been cancelled by our team.</p>" +
+                    (refunded ? $"<p>The client's payment of <strong>{service?.Price.ToString("C")}</strong> has been refunded.</p>" : string.Empty) +
                     PortalLink(ProviderPortalUrl));
             }
         }
@@ -135,6 +139,36 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
                     $"<p>Our team rescheduled the <strong>{serviceName}</strong> appointment with {ClientLine(client)} - it {changeLine}.</p>" +
                     PortalLink(ProviderPortalUrl));
             }
+        }
+    }
+
+    // Called any time money actually moves back to a client - a booking
+    // conflict discovered at payment time, or a client cancelling outside
+    // the 24-hour window. The provider and every Admin account get told,
+    // since a refund is exactly the kind of event finance/ops needs
+    // visibility into without having to notice it in the Stripe dashboard.
+    public async Task NotifyRefundIssuedAsync(User? client, User? provider, Service? service, DateTime start, decimal amount, string reason)
+    {
+        var serviceName = service?.Name ?? "the treatment";
+        var when = $"{start:dddd, MMMM d} at {start:h:mm tt}";
+        var amountText = amount.ToString("C");
+
+        await using var db = await dbContextFactory.CreateDbContextAsync();
+        var admins = await db.Users.Where(u => u.Role == "Admin").ToListAsync();
+
+        var body = $"<p>A refund of <strong>{amountText}</strong> was issued for {ClientLine(client)}'s <strong>{serviceName}</strong> " +
+                   $"appointment scheduled for {when}.</p>" +
+                   $"<p>Reason: {reason}</p>" +
+                   "<p>This amount has been excluded from revenue reporting.</p>";
+
+        if (provider is not null)
+        {
+            await NotifyAsync(provider, "Refund issued - Fargo Spa and Wellness", $"<p>Hi {provider.FirstName},</p>" + body + PortalLink(ProviderPortalUrl));
+        }
+
+        foreach (var admin in admins)
+        {
+            await NotifyAsync(admin, "Refund issued - Fargo Spa and Wellness", $"<p>Hi {admin.FirstName},</p>" + body);
         }
     }
 
