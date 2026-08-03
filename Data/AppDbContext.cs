@@ -12,6 +12,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ServiceNote> ServiceNotes => Set<ServiceNote>();
     public DbSet<ProviderAvailability> ProviderAvailability => Set<ProviderAvailability>();
     public DbSet<ProviderShift> ProviderShifts => Set<ProviderShift>();
+    public DbSet<ServiceCategory> ServiceCategories => Set<ServiceCategory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +68,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany()
             .HasForeignKey(ps => ps.ProviderId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ServiceCategory>()
+            .HasIndex(c => c.Name)
+            .IsUnique();
+
+        // Seeded to match the icons ServiceCategoryIcon previously hardcoded,
+        // plus "Wellness" for the deactivated Lavender Relaxation Ritual
+        // service, which predates the current category naming.
+        modelBuilder.Entity<ServiceCategory>().HasData(
+            new ServiceCategory { Id = 1, Name = "Massage", Icon = "\U0001F486" },
+            new ServiceCategory { Id = 2, Name = "Facial & Skincare", Icon = "✨" },
+            new ServiceCategory { Id = 3, Name = "Body Treatments", Icon = "\U0001F9D6" },
+            new ServiceCategory { Id = 4, Name = "Nail Care", Icon = "\U0001F485" },
+            new ServiceCategory { Id = 5, Name = "Wellness & Add-Ons", Icon = "\U0001F33F" },
+            new ServiceCategory { Id = 6, Name = "Wellness", Icon = "\U0001F31F" }
+        );
 
         // Canonical catalog per the Requirements and Design doc's Appendix
         // ("Service Catalog, Pricing & Business Policies" - the single source

@@ -43,6 +43,12 @@
 
                     @if (context.User.IsInRole("Admin"))
                     {
+                        <p class="admin-nav-heading">Overview</p>
+                        <NavLink class="admin-nav-link" href="/admin" Match="NavLinkMatch.All">
+                            <span>Dashboard</span>
+                            <span class="admin-nav-badge admin">Admin</span>
+                        </NavLink>
+
                         <p class="admin-nav-heading">Scheduling</p>
                         <NavLink class="admin-nav-link" href="/admin/calendar">
                             <span>Master Calendar</span>

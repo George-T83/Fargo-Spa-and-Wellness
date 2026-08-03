@@ -83,6 +83,8 @@ using (var scope = app.Services.CreateScope())
     await using var db = await dbFactory.CreateDbContextAsync();
     await db.Database.MigrateAsync();
 
+    ServiceCategoryIcon.Configure(await db.ServiceCategories.ToListAsync());
+
     // Dev bootstrap: create exactly one Admin account from .env if none exists yet.
     if (!await db.Users.AnyAsync(u => u.Role == "Admin"))
     {
