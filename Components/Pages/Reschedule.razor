@@ -99,8 +99,9 @@
                                     <button type="button"
                                             class="booking-slot @(!slot.Available ? "unavailable" : "") @(selectedStart == slot.Start ? "selected" : "")"
                                             disabled="@(!slot.Available)"
+                                            title="@(slot.IsCurrent ? "This is your current appointment time" : null)"
                                             @onclick="() => SelectSlot(slot)">
-                                        @slot.Start.ToString("h:mm tt")
+                                        @slot.Start.ToString("h:mm tt")@(slot.IsCurrent ? " (current)" : "")
                                     </button>
                                 }
                             </div>
@@ -290,7 +291,8 @@
 
             var end = start.Add(duration);
             var overlaps = existing.Any(e => e.StartTime < end && start < e.EndTime);
-            generated.Add(new TimeSlot(start, end, !overlaps));
+            var isCurrent = start == appointment.StartTime;
+            generated.Add(new TimeSlot(start, end, !overlaps && !isCurrent, isCurrent));
         }
 
         slots = generated;
@@ -323,6 +325,12 @@
         var newStart = selectedStart.Value;
         var newEnd = newStart.Add(TimeSpan.FromMinutes(dbAppt.Service.DurationMinutes));
 
+        if (newStart == dbAppt.StartTime)
+        {
+            errorMessage = "That's already your scheduled time. Pick a different time slot to reschedule.";
+            return;
+        }
+
         var conflictQuery = db.Appointments.Where(a => a.Id != dbAppt.Id && a.AppointmentStatus != "Cancelled" && a.StartTime < newEnd && newStart < a.EndTime);
         if (dbAppt.ProviderId is not null)
         {
@@ -350,5 +358,5 @@
         submitted = true;
     }
 
-    private record TimeSlot(DateTime Start, DateTime End, bool Available);
+    private record TimeSlot(DateTime Start, DateTime End, bool Available, bool IsCurrent = false);
 }
