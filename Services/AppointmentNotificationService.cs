@@ -100,23 +100,53 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
         var newWhen = FormatWhen(newStart, newEnd);
         var changeLine = $"moved from {oldWhen} to <strong>{newWhen}</strong>";
 
-        if (actor == ChangeActor.Client && provider is not null)
+        if (actor == ChangeActor.Client)
         {
-            await NotifyAsync(
-                provider,
-                "An appointment was rescheduled - Fargo Spa and Wellness",
-                $"<p>Hi {provider.FirstName},</p>" +
-                $"<p>{ClientLine(client)} rescheduled their <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
-                PortalLink(ProviderPortalUrl));
+            // The client made the change, so they get their own confirmation
+            // (not just the "someone else changed your appointment" framing
+            // the provider gets) - both sides should always know a
+            // reschedule happened, not just the one who didn't do it.
+            if (client is not null)
+            {
+                await NotifyAsync(
+                    client,
+                    "Your appointment was rescheduled - Fargo Spa and Wellness",
+                    $"<p>Hi {client.FirstName},</p>" +
+                    $"<p>Your <strong>{serviceName}</strong> appointment has been rescheduled - it {changeLine}.</p>" +
+                    ClientContactLine());
+            }
+
+            if (provider is not null)
+            {
+                await NotifyAsync(
+                    provider,
+                    "An appointment was rescheduled - Fargo Spa and Wellness",
+                    $"<p>Hi {provider.FirstName},</p>" +
+                    $"<p>{ClientLine(client)} rescheduled their <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
+                    PortalLink(ProviderPortalUrl));
+            }
         }
-        else if (actor == ChangeActor.Provider && client is not null)
+        else if (actor == ChangeActor.Provider)
         {
-            await NotifyAsync(
-                client,
-                "Your appointment was rescheduled - Fargo Spa and Wellness",
-                $"<p>Hi {client.FirstName},</p>" +
-                $"<p>{ProviderLine(provider)} rescheduled your <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
-                ClientContactLine());
+            if (provider is not null)
+            {
+                await NotifyAsync(
+                    provider,
+                    "You rescheduled an appointment - Fargo Spa and Wellness",
+                    $"<p>Hi {provider.FirstName},</p>" +
+                    $"<p>You rescheduled the <strong>{serviceName}</strong> appointment with {ClientLine(client)} - it {changeLine}.</p>" +
+                    PortalLink(ProviderPortalUrl));
+            }
+
+            if (client is not null)
+            {
+                await NotifyAsync(
+                    client,
+                    "Your appointment was rescheduled - Fargo Spa and Wellness",
+                    $"<p>Hi {client.FirstName},</p>" +
+                    $"<p>{ProviderLine(provider)} rescheduled your <strong>{serviceName}</strong> appointment - it {changeLine}.</p>" +
+                    ClientContactLine());
+            }
         }
         else if (actor == ChangeActor.Admin)
         {
