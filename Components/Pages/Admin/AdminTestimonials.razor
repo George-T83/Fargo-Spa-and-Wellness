@@ -4,8 +4,11 @@
 @attribute [Authorize(Roles = "Admin")]
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IEmailSender EmailSender
+@inject NavigationManager NavigationManager
 
 <PageTitle>Testimonial Moderation - Fargo Spa and Wellness</PageTitle>
 
@@ -115,17 +118,44 @@ else
     private async Task UpdateStatusAsync(Testimonial testimonial, string newStatus)
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        var dbTestimonial = await db.Testimonials.FindAsync(testimonial.Id);
+        var dbTestimonial = await db.Testimonials.Include(t => t.Client).FirstOrDefaultAsync(t => t.Id == testimonial.Id);
         if (dbTestimonial is not null)
         {
+            var previousStatus = dbTestimonial.ApprovalStatus;
             dbTestimonial.ApprovalStatus = newStatus;
             await db.SaveChangesAsync();
+
+            if (newStatus != previousStatus && (newStatus == "Approved" || newStatus == "Rejected"))
+            {
+                await NotifyClientOfDecisionAsync(dbTestimonial, newStatus);
+            }
         }
 
         // Reload so counts and the current tab's filtered list both reflect
         // the change immediately - this is what makes an approved/rejected
         // card actually leave the Pending tab's view.
         await LoadTestimonialsAsync();
+    }
+
+    private async Task NotifyClientOfDecisionAsync(Testimonial testimonial, string newStatus)
+    {
+        var client = testimonial.Client;
+        if (client is null || !client.NotifyByEmail)
+        {
+            return;
+        }
+
+        var body = newStatus == "Approved"
+            ? "<p>Good news - your review has been approved and is now live on our Reviews page. Thanks again for sharing your experience!</p>"
+            : "<p>Your review wasn't approved to appear publicly. If you think this was a mistake or want to share more detail, feel free to reach out through our Contact page.</p>";
+
+        var reviewsUrl = new Uri(new Uri(NavigationManager.BaseUri), "/reviews");
+        await EmailSender.SendAsync(
+            client.Email,
+            newStatus == "Approved" ? "Your review is now live - Fargo Spa and Wellness" : "An update on your review - Fargo Spa and Wellness",
+            $"<p>Hi {client.FirstName},</p>" +
+            body +
+            (newStatus == "Approved" ? $"<p><a href=\"{reviewsUrl}\">{reviewsUrl}</a></p>" : string.Empty));
     }
 
     private static string StatusCssClass(string status) => status switch
