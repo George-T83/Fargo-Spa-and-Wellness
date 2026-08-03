@@ -1285,11 +1285,6 @@ h1:focus {
     min-height: 2px;
 }
 
-.admin-trend-bar-fill.empty {
-    min-height: 0;
-    background-color: transparent;
-}
-
 .admin-trend-bar-label {
     font-size: 0.62rem;
     color: var(--spa-ink-400);

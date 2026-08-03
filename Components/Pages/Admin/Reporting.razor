@@ -79,7 +79,7 @@ else
                 @foreach (var point in report.Trend)
                 {
                     <div class="admin-trend-bar" title="@($"{point.Label}: {point.Count} booking(s)")">
-                        <div class="admin-trend-bar-fill @(point.Count == 0 ? "empty" : "")" style="height:@(point.HeightPercent.ToString("0.##"))%"></div>
+                        <div class="admin-trend-bar-fill" style="height:@(point.HeightPercent.ToString("0.##"))%"></div>
                         <span class="admin-trend-bar-label">@(point.ShowLabel ? point.Label : "")</span>
                     </div>
                 }
