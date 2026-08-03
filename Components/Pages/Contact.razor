@@ -237,8 +237,10 @@
             return $"{when}: Closed{(string.IsNullOrWhiteSpace(o.Reason) ? "" : $" ({o.Reason})")}";
         }
 
-        var closeText = o.CloseTime is { } t ? $"closing at {FormatTime(t)}" : "hours adjusted";
-        return $"{when}: {closeText}{(string.IsNullOrWhiteSpace(o.Reason) ? "" : $" ({o.Reason})")}";
+        var detail = o.OpenTime is { } openT
+            ? $"opening at {FormatTime(openT)}"
+            : o.CloseTime is { } closeT ? $"closing at {FormatTime(closeT)}" : "hours adjusted";
+        return $"{when}: {detail}{(string.IsNullOrWhiteSpace(o.Reason) ? "" : $" ({o.Reason})")}";
     }
 
     private async Task HandleSubmit()

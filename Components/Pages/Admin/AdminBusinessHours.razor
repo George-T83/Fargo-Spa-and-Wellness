@@ -89,12 +89,21 @@ else
             </div>
             <div class="admin-form-field">
                 <label>Type</label>
-                <select class="admin-role-select" @bind="newOverrideIsClosed">
-                    <option value="false">Close early</option>
-                    <option value="true">Closed all day</option>
+                <select class="admin-role-select" value="@newOverrideType" @onchange="e => newOverrideType = e.Value?.ToString() ?? newOverrideType">
+                    <option value="CloseEarly">Close early</option>
+                    <option value="OpenLate">Open late</option>
+                    <option value="Closed">Closed all day</option>
                 </select>
             </div>
-            @if (!newOverrideIsClosed)
+            @if (newOverrideType == "OpenLate")
+            {
+                <div class="admin-form-field">
+                    <label>Open at</label>
+                    <input type="time" class="admin-role-select" value="@newOverrideOpenTimeText"
+                           @onchange="e => newOverrideOpenTimeText = e.Value?.ToString() ?? newOverrideOpenTimeText" />
+                </div>
+            }
+            else if (newOverrideType == "CloseEarly")
             {
                 <div class="admin-form-field">
                     <label>Close at</label>
@@ -145,8 +154,9 @@ else
 
     private List<BusinessHoursOverride>? overrides;
     private DateTime newOverrideDate = ClinicClock.Today;
-    private bool newOverrideIsClosed;
+    private string newOverrideType = "CloseEarly";
     private string newOverrideCloseTimeText = "14:00";
+    private string newOverrideOpenTimeText = "11:00";
     private string newOverrideReason = string.Empty;
     private string? overrideError;
 
@@ -244,8 +254,11 @@ else
             return;
         }
 
+        var isClosed = newOverrideType == "Closed";
         TimeSpan? closeTime = null;
-        if (!newOverrideIsClosed)
+        TimeSpan? openTime = null;
+
+        if (newOverrideType == "CloseEarly")
         {
             if (!TimeSpan.TryParse(newOverrideCloseTimeText, out var parsed))
             {
@@ -254,6 +267,16 @@ else
             }
 
             closeTime = parsed;
+        }
+        else if (newOverrideType == "OpenLate")
+        {
+            if (!TimeSpan.TryParse(newOverrideOpenTimeText, out var parsed))
+            {
+                overrideError = "Enter a valid open time.";
+                return;
+            }
+
+            openTime = parsed;
         }
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
@@ -264,15 +287,17 @@ else
             db.BusinessHoursOverrides.Add(new BusinessHoursOverride
             {
                 Date = newOverrideDate.Date,
-                IsClosed = newOverrideIsClosed,
+                IsClosed = isClosed,
                 CloseTime = closeTime,
+                OpenTime = openTime,
                 Reason = string.IsNullOrWhiteSpace(newOverrideReason) ? null : newOverrideReason.Trim(),
             });
         }
         else
         {
-            existing.IsClosed = newOverrideIsClosed;
+            existing.IsClosed = isClosed;
             existing.CloseTime = closeTime;
+            existing.OpenTime = openTime;
             existing.Reason = string.IsNullOrWhiteSpace(newOverrideReason) ? null : newOverrideReason.Trim();
         }
 
@@ -298,9 +323,19 @@ else
     private static string FormatOverride(BusinessHoursOverride o)
     {
         var when = o.Date.ToString("ddd, MMM d, yyyy");
-        var detail = o.IsClosed
-            ? "Closed all day"
-            : $"Closes at {(o.CloseTime is { } t ? DateTime.Today.Add(t).ToString("h:mm tt") : "?")}";
+        string detail;
+        if (o.IsClosed)
+        {
+            detail = "Closed all day";
+        }
+        else if (o.OpenTime is { } openT)
+        {
+            detail = $"Opens at {DateTime.Today.Add(openT).ToString("h:mm tt")}";
+        }
+        else
+        {
+            detail = $"Closes at {(o.CloseTime is { } t ? DateTime.Today.Add(t).ToString("h:mm tt") : "?")}";
+        }
         return string.IsNullOrWhiteSpace(o.Reason) ? $"{when} - {detail}" : $"{when} - {detail} ({o.Reason})";
     }
 

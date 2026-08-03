@@ -26,9 +26,17 @@ public static class BusinessHoursService
             {
                 isOpen = false;
             }
-            else if (over.CloseTime is { } earlyClose && earlyClose < closeTime)
+            else
             {
-                closeTime = earlyClose;
+                if (over.CloseTime is { } earlyClose && earlyClose < closeTime)
+                {
+                    closeTime = earlyClose;
+                }
+
+                if (over.OpenTime is { } lateOpen && lateOpen > openTime)
+                {
+                    openTime = lateOpen;
+                }
             }
         }
 
