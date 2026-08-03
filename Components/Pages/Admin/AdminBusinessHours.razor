@@ -88,29 +88,28 @@ else
                 <input type="date" class="admin-role-select" @bind="newOverrideDate" />
             </div>
             <div class="admin-form-field">
-                <label>&nbsp;</label>
-                <label style="display:flex;align-items:center;gap:0.4rem;height:2.4rem;">
+                <label>Closed all day</label>
+                <div class="admin-checkbox-toggle">
                     <input type="checkbox" checked="@newOverrideClosed" @onchange="e => newOverrideClosed = (bool)(e.Value ?? false)" />
-                    Closed all day
-                </label>
+                </div>
             </div>
             @if (!newOverrideClosed)
             {
                 <div class="admin-form-field">
-                    <label>
+                    <label>Open late</label>
+                    <div class="admin-checkbox-toggle">
                         <input type="checkbox" checked="@newOverrideOpenLate" @onchange="e => newOverrideOpenLate = (bool)(e.Value ?? false)" />
-                        Open late
-                    </label>
-                    <input type="time" class="admin-role-select" disabled="@(!newOverrideOpenLate)" value="@newOverrideOpenTimeText"
-                           @onchange="e => newOverrideOpenTimeText = e.Value?.ToString() ?? newOverrideOpenTimeText" />
+                        <input type="time" class="admin-role-select" disabled="@(!newOverrideOpenLate)" value="@newOverrideOpenTimeText"
+                               @onchange="e => newOverrideOpenTimeText = e.Value?.ToString() ?? newOverrideOpenTimeText" />
+                    </div>
                 </div>
                 <div class="admin-form-field">
-                    <label>
+                    <label>Close early</label>
+                    <div class="admin-checkbox-toggle">
                         <input type="checkbox" checked="@newOverrideCloseEarly" @onchange="e => newOverrideCloseEarly = (bool)(e.Value ?? false)" />
-                        Close early
-                    </label>
-                    <input type="time" class="admin-role-select" disabled="@(!newOverrideCloseEarly)" value="@newOverrideCloseTimeText"
-                           @onchange="e => newOverrideCloseTimeText = e.Value?.ToString() ?? newOverrideCloseTimeText" />
+                        <input type="time" class="admin-role-select" disabled="@(!newOverrideCloseEarly)" value="@newOverrideCloseTimeText"
+                               @onchange="e => newOverrideCloseTimeText = e.Value?.ToString() ?? newOverrideCloseTimeText" />
+                    </div>
                 </div>
             }
             <div class="admin-form-field">
