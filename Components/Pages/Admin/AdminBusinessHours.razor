@@ -1,0 +1,313 @@
+@page "/admin/hours"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@using Family_and_Spa_Wellness.Data
+@using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+
+<PageTitle>Business Hours - Fargo Spa and Wellness</PageTitle>
+
+<div class="admin-page-header">
+    <h1>Business Hours</h1>
+    <p>Set regular weekly hours, and add one-off exceptions like a holiday closure or an early close.</p>
+</div>
+
+@if (hoursByDay is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    @if (statusMessage is not null)
+    {
+        <div class="admin-alert">@statusMessage</div>
+    }
+
+    @if (validationErrors.Count > 0)
+    {
+        <div class="admin-alert">
+            @foreach (var error in validationErrors)
+            {
+                <div>@error</div>
+            }
+        </div>
+    }
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Open</th>
+                    <th>Open time</th>
+                    <th>Close time</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var day in DaysOfWeek)
+                {
+                    var row = hoursByDay[day];
+                    <tr @key="day">
+                        <td class="shift-day-cell">@day</td>
+                        <td>
+                            <input type="checkbox" checked="@row.IsOpen" @onchange="e => row.IsOpen = (bool)(e.Value ?? false)" />
+                        </td>
+                        <td>
+                            <input type="time" class="admin-role-select" disabled="@(!row.IsOpen)"
+                                   value="@row.OpenTime.ToString(@"hh\:mm")"
+                                   @onchange="e => row.OpenTime = TimeSpan.TryParse(e.Value?.ToString(), out var t) ? t : row.OpenTime" />
+                        </td>
+                        <td>
+                            <input type="time" class="admin-role-select" disabled="@(!row.IsOpen)"
+                                   value="@row.CloseTime.ToString(@"hh\:mm")"
+                                   @onchange="e => row.CloseTime = TimeSpan.TryParse(e.Value?.ToString(), out var t) ? t : row.CloseTime" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <button type="button" class="btn btn-spa-primary mt-3" @onclick="SaveWeeklyAsync">Save Weekly Hours</button>
+
+    <div class="admin-timeoff-section">
+        <h2 class="admin-timeoff-title">One-off exceptions</h2>
+        <p class="admin-availability-hint">Close early for a single day, or close the shop entirely for a holiday - clients booking that date will see the adjusted hours (or won't be able to book at all if fully closed).</p>
+
+        @if (overrideError is not null)
+        {
+            <div class="admin-alert">@overrideError</div>
+        }
+
+        <div class="admin-timeoff-form">
+            <div class="admin-form-field">
+                <label>Date</label>
+                <input type="date" class="admin-role-select" @bind="newOverrideDate" />
+            </div>
+            <div class="admin-form-field">
+                <label>Type</label>
+                <select class="admin-role-select" @bind="newOverrideIsClosed">
+                    <option value="false">Close early</option>
+                    <option value="true">Closed all day</option>
+                </select>
+            </div>
+            @if (!newOverrideIsClosed)
+            {
+                <div class="admin-form-field">
+                    <label>Close at</label>
+                    <input type="time" class="admin-role-select" value="@newOverrideCloseTimeText"
+                           @onchange="e => newOverrideCloseTimeText = e.Value?.ToString() ?? newOverrideCloseTimeText" />
+                </div>
+            }
+            <div class="admin-form-field">
+                <label>Reason (optional)</label>
+                <input type="text" class="admin-role-select" placeholder="e.g. Staff training" @bind="newOverrideReason" />
+            </div>
+            <button type="button" class="btn btn-spa-secondary" @onclick="AddOverrideAsync">+ Add exception</button>
+        </div>
+
+        @if (overrides is null)
+        {
+            <p class="admin-availability-hint">Loading...</p>
+        }
+        else if (overrides.Count == 0)
+        {
+            <p class="shift-not-scheduled">No exceptions scheduled.</p>
+        }
+        else
+        {
+            <ul class="admin-timeoff-list">
+                @foreach (var over in overrides)
+                {
+                    <li @key="over.Id">
+                        <span>@FormatOverride(over)</span>
+                        <button type="button" class="shift-remove-btn" title="Remove" @onclick="() => RemoveOverrideAsync(over)">&times;</button>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    private static readonly DayOfWeek[] DaysOfWeek =
+    {
+        DayOfWeek.Sunday, DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+        DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday,
+    };
+
+    private Dictionary<DayOfWeek, HoursRow>? hoursByDay;
+    private string? statusMessage;
+    private List<string> validationErrors = new();
+
+    private List<BusinessHoursOverride>? overrides;
+    private DateTime newOverrideDate = ClinicClock.Today;
+    private bool newOverrideIsClosed;
+    private string newOverrideCloseTimeText = "14:00";
+    private string newOverrideReason = string.Empty;
+    private string? overrideError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWeeklyAsync();
+        await LoadOverridesAsync();
+    }
+
+    private async Task LoadWeeklyAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var existing = await db.BusinessHours.ToListAsync();
+
+        hoursByDay = DaysOfWeek.ToDictionary(day => day, day =>
+        {
+            var h = existing.FirstOrDefault(x => x.DayOfWeek == day);
+            return new HoursRow
+            {
+                IsOpen = h?.IsOpen ?? false,
+                OpenTime = h?.OpenTime ?? new TimeSpan(9, 0, 0),
+                CloseTime = h?.CloseTime ?? new TimeSpan(17, 0, 0),
+            };
+        });
+    }
+
+    private async Task SaveWeeklyAsync()
+    {
+        if (hoursByDay is null)
+        {
+            return;
+        }
+
+        validationErrors = new List<string>();
+        foreach (var day in DaysOfWeek)
+        {
+            var row = hoursByDay[day];
+            if (row.IsOpen && row.CloseTime <= row.OpenTime)
+            {
+                validationErrors.Add($"{day}: close time must be after open time.");
+            }
+        }
+
+        if (validationErrors.Count > 0)
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var existing = await db.BusinessHours.ToListAsync();
+
+        foreach (var day in DaysOfWeek)
+        {
+            var row = hoursByDay[day];
+            var dbRow = existing.FirstOrDefault(x => x.DayOfWeek == day);
+            if (dbRow is null)
+            {
+                db.BusinessHours.Add(new BusinessHours
+                {
+                    DayOfWeek = day,
+                    IsOpen = row.IsOpen,
+                    OpenTime = row.OpenTime,
+                    CloseTime = row.CloseTime,
+                });
+            }
+            else
+            {
+                dbRow.IsOpen = row.IsOpen;
+                dbRow.OpenTime = row.OpenTime;
+                dbRow.CloseTime = row.CloseTime;
+            }
+        }
+
+        await db.SaveChangesAsync();
+        statusMessage = "Weekly business hours have been saved.";
+        await LoadWeeklyAsync();
+    }
+
+    private async Task LoadOverridesAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        overrides = await db.BusinessHoursOverrides
+            .Where(o => o.Date >= ClinicClock.Today)
+            .OrderBy(o => o.Date)
+            .ToListAsync();
+    }
+
+    private async Task AddOverrideAsync()
+    {
+        overrideError = null;
+
+        if (newOverrideDate.Date < ClinicClock.Today)
+        {
+            overrideError = "Pick today or a future date.";
+            return;
+        }
+
+        TimeSpan? closeTime = null;
+        if (!newOverrideIsClosed)
+        {
+            if (!TimeSpan.TryParse(newOverrideCloseTimeText, out var parsed))
+            {
+                overrideError = "Enter a valid close time.";
+                return;
+            }
+
+            closeTime = parsed;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var existing = await db.BusinessHoursOverrides.FirstOrDefaultAsync(o => o.Date == newOverrideDate.Date);
+
+        if (existing is null)
+        {
+            db.BusinessHoursOverrides.Add(new BusinessHoursOverride
+            {
+                Date = newOverrideDate.Date,
+                IsClosed = newOverrideIsClosed,
+                CloseTime = closeTime,
+                Reason = string.IsNullOrWhiteSpace(newOverrideReason) ? null : newOverrideReason.Trim(),
+            });
+        }
+        else
+        {
+            existing.IsClosed = newOverrideIsClosed;
+            existing.CloseTime = closeTime;
+            existing.Reason = string.IsNullOrWhiteSpace(newOverrideReason) ? null : newOverrideReason.Trim();
+        }
+
+        await db.SaveChangesAsync();
+        newOverrideReason = string.Empty;
+        statusMessage = "Exception saved.";
+        await LoadOverridesAsync();
+    }
+
+    private async Task RemoveOverrideAsync(BusinessHoursOverride over)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var row = await db.BusinessHoursOverrides.FindAsync(over.Id);
+        if (row is not null)
+        {
+            db.BusinessHoursOverrides.Remove(row);
+            await db.SaveChangesAsync();
+        }
+
+        await LoadOverridesAsync();
+    }
+
+    private static string FormatOverride(BusinessHoursOverride o)
+    {
+        var when = o.Date.ToString("ddd, MMM d, yyyy");
+        var detail = o.IsClosed
+            ? "Closed all day"
+            : $"Closes at {(o.CloseTime is { } t ? DateTime.Today.Add(t).ToString("h:mm tt") : "?")}";
+        return string.IsNullOrWhiteSpace(o.Reason) ? $"{when} - {detail}" : $"{when} - {detail} ({o.Reason})";
+    }
+
+    private class HoursRow
+    {
+        public bool IsOpen { get; set; }
+        public TimeSpan OpenTime { get; set; }
+        public TimeSpan CloseTime { get; set; }
+    }
+}

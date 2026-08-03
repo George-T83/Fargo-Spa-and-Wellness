@@ -89,7 +89,7 @@
                     else if (step == 2)
                     {
                         <h2 class="booking-card-title">Pick a date &amp; time</h2>
-                        <p class="booking-card-subtitle">Business hours are 8:00 AM to 5:00 PM.</p>
+                        <p class="booking-card-subtitle">@HoursSubtitle()</p>
 
                         <div class="booking-calendar-nav">
                             <button type="button" class="booking-calendar-nav-btn" disabled="@IsCurrentWeek" @onclick="GoToPreviousWeek">&lsaquo;</button>
@@ -112,6 +112,10 @@
                         @if (loadingSlots)
                         {
                             <p class="booking-slots-hint">Checking availability...</p>
+                        }
+                        else if (!businessHours.IsOpen)
+                        {
+                            <p class="booking-slots-hint">We're closed on this date. Try another day.</p>
                         }
                         else if (slots.Count == 0)
                         {
@@ -266,9 +270,12 @@
     [SupplyParameterFromQuery(Name = "time")]
     public string? Time { get; set; }
 
-    private static readonly TimeSpan OpeningTime = TimeSpan.FromHours(8);
-    private static readonly TimeSpan ClosingTime = TimeSpan.FromHours(17);
     private static readonly TimeSpan SlotInterval = TimeSpan.FromMinutes(30);
+
+    // Reloaded per selected date in LoadSlotsAsync - the shop's hours can
+    // differ by day of week, and can be overridden for a one-off early close
+    // or closure (see BusinessHoursService), so this can't be a constant.
+    private EffectiveHours businessHours = new(false, TimeSpan.Zero, TimeSpan.Zero);
 
     private List<Service>? services;
     private List<User> providers = new();
@@ -487,6 +494,14 @@
         var dayStart = selectedDate.Date;
         var dayEnd = dayStart.AddDays(1);
 
+        businessHours = await BusinessHoursService.LoadForDateAsync(db, selectedDate);
+        if (!businessHours.IsOpen)
+        {
+            slots = new List<TimeSlot>();
+            loadingSlots = false;
+            return;
+        }
+
         var candidateProviderIds = (selectedProviderId != 0 ? new List<int> { selectedProviderId } : providers.Select(p => p.Id)).ToList();
         var schedule = await ProviderScheduleService.LoadAsync(db, candidateProviderIds, dayStart);
 
@@ -504,7 +519,7 @@
         var isToday = selectedDate.Date == ClinicClock.Today;
         var generated = new List<TimeSlot>();
 
-        for (var start = dayStart.Add(OpeningTime); start.Add(duration) <= dayStart.Add(ClosingTime); start = start.Add(SlotInterval))
+        for (var start = dayStart.Add(businessHours.OpenTime); start.Add(duration) <= dayStart.Add(businessHours.CloseTime); start = start.Add(SlotInterval))
         {
             if (isToday && start <= ClinicClock.Now)
             {
@@ -525,7 +540,9 @@
             }
             else
             {
-                available = true;
+                // No providers exist in the system at all - nothing can
+                // actually staff this appointment, so don't offer it.
+                available = false;
             }
 
             generated.Add(new TimeSlot(start, end, available));
@@ -545,6 +562,13 @@
 
         selectedStart = slot.Start;
     }
+
+    private string HoursSubtitle() =>
+        businessHours.IsOpen
+            ? $"Hours for {selectedDate:dddd, MMM d}: {FormatTime(businessHours.OpenTime)} to {FormatTime(businessHours.CloseTime)}."
+            : $"We're closed on {selectedDate:dddd, MMM d}.";
+
+    private static string FormatTime(TimeSpan t) => DateTime.Today.Add(t).ToString("h:mm tt");
 
     private async Task HandleBooking()
     {
@@ -584,6 +608,15 @@
             var start = selectedStart.Value;
             var end = start.Add(TimeSpan.FromMinutes(service.DurationMinutes));
 
+            var hoursThatDay = await BusinessHoursService.LoadForDateAsync(db, start.Date);
+            if (!hoursThatDay.IsOpen || start.TimeOfDay < hoursThatDay.OpenTime || end.TimeOfDay > hoursThatDay.CloseTime)
+            {
+                errorMessage = "That date/time is no longer available. Please choose another.";
+                step = 2;
+                await LoadSlotsAsync();
+                return;
+            }
+
             var candidateProviderIds = (selectedProviderId != 0 ? new List<int> { selectedProviderId } : providers.Select(p => p.Id)).ToList();
             var schedule = await ProviderScheduleService.LoadAsync(db, candidateProviderIds, start.Date);
 
@@ -609,7 +642,7 @@
                 assignedProviderId = null;
             }
 
-            var stillAvailable = selectedProviderId != 0 ? assignedProviderId is not null : providers.Count == 0 || assignedProviderId is not null;
+            var stillAvailable = assignedProviderId is not null;
             if (!stillAvailable)
             {
                 errorMessage = "That time slot was just booked by someone else. Please choose another.";
