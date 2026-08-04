@@ -206,7 +206,6 @@
 
 .admin-content {
     padding: 2rem 2.5rem;
-    max-width: 1400px;
 }
 
 @media (max-width: 640px) {

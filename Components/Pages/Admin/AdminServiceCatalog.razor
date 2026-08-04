@@ -44,19 +44,20 @@ else
     {
         <div class="admin-form-card">
             <h3>Category Icons</h3>
-            <p class="admin-service-description">Set the emoji shown next to each category on the booking and services pages.</p>
+            <p class="admin-service-description mb-4">Set the emoji shown next to each category on the booking and services pages.</p>
             <div class="admin-form-grid">
                 @foreach (var cat in serviceCategories)
                 {
                     <div class="admin-form-field">
                         <label>@cat.Name</label>
-                        <div class="d-flex gap-2">
-                            <input type="text" maxlength="4" style="width:4rem;text-align:center"
-                                   value="@cat.Icon" @onchange="e => cat.Icon = e.Value?.ToString() ?? cat.Icon" />
-                            <button type="button" class="btn btn-spa-secondary btn-sm" @onclick="() => SaveCategoryIconAsync(cat)">Save</button>
-                        </div>
+                        <input type="text" maxlength="4" style="width:4rem;text-align:center"
+                               value="@cat.Icon" @onchange="e => cat.Icon = e.Value?.ToString() ?? cat.Icon" />
                     </div>
                 }
+            </div>
+            <div class="admin-service-actions mt-3">
+                <button type="button" class="btn btn-spa-primary btn-sm" @onclick="SaveCategoryIconsAsync">Save icons</button>
+                <button type="button" class="btn btn-spa-secondary btn-sm" @onclick="CancelCategoryIconEdits">Cancel</button>
             </div>
         </div>
     }
@@ -84,16 +85,16 @@ else
                 <div class="admin-form-field">
                     <label>Category</label>
                     <select class="admin-role-select" value="@CategorySelectValue" @onchange="OnCategorySelectChanged">
-                        @foreach (var category in categories)
+                        @foreach (var category in serviceCategories)
                         {
-                            <option value="@category">@category</option>
+                            <option value="@category.Id">@category.Name</option>
                         }
                         <option value="@NewCategorySentinel">+ Add new category...</option>
                     </select>
                     @if (isAddingNewCategory)
                     {
                         <input type="text" class="mt-2" placeholder="New category name"
-                               @bind="editingService.Category" @bind:event="oninput" />
+                               @bind="newCategoryName" @bind:event="oninput" />
                     }
                 </div>
                 <div class="admin-form-field">
@@ -131,7 +132,7 @@ else
                 <div class="admin-service-card">
                     <div class="admin-service-card-header">
                         <div>
-                            <div class="admin-service-category">@service.Category</div>
+                            <div class="admin-service-category">@service.Category.Icon @service.Category.Name</div>
                             <h3>@service.Name</h3>
                         </div>
                         <span class="admin-status-badge @(service.IsActive ? "active" : "inactive")">
@@ -161,21 +162,23 @@ else
     private string searchText = string.Empty;
     private string selectedCategory = "All";
     private Service? editingService;
+    private int editingCategoryId;
+    private string newCategoryName = string.Empty;
     private List<string> validationErrors = new();
     private string? statusMessage;
     private bool isAddingNewCategory;
-    private const string NewCategorySentinel = "__new__";
+    private const int NewCategorySentinel = -1;
     private bool showCategoryPanel;
     private List<ServiceCategory> serviceCategories = new();
 
-    private string CategorySelectValue => isAddingNewCategory ? NewCategorySentinel : (editingService?.Category ?? "");
+    private string CategorySelectValue => isAddingNewCategory ? NewCategorySentinel.ToString() : editingCategoryId.ToString();
 
     private List<Service> FilteredServices => (services ?? new())
-        .Where(s => selectedCategory == "All" || s.Category == selectedCategory)
+        .Where(s => selectedCategory == "All" || s.Category.Name == selectedCategory)
         .Where(s => string.IsNullOrWhiteSpace(searchText)
             || s.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase)
             || s.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-        .OrderBy(s => s.Category).ThenBy(s => s.Name)
+        .OrderBy(s => s.Category.Name).ThenBy(s => s.Name)
         .ToList();
 
     protected override async Task OnInitializedAsync()
@@ -186,46 +189,50 @@ else
     private async Task LoadServicesAsync()
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        services = await db.Services.OrderBy(s => s.Category).ThenBy(s => s.Name).ToListAsync();
-        categories = services.Select(s => s.Category).Distinct().OrderBy(c => c).ToList();
-
-        // A category can exist on a Service row (typed in via "+ Add new
-        // category...") before it has a matching ServiceCategory row - back
-        // it with a default-icon row here so it immediately shows up in the
-        // icon manager instead of silently falling back to the star forever.
-        var existingNames = await db.ServiceCategories.Select(c => c.Name).ToListAsync();
-        var missingNames = categories.Except(existingNames, StringComparer.OrdinalIgnoreCase).ToList();
-        if (missingNames.Count > 0)
-        {
-            db.ServiceCategories.AddRange(missingNames.Select(name => new ServiceCategory { Name = name }));
-            await db.SaveChangesAsync();
-        }
-
+        services = await db.Services
+            .Include(s => s.Category)
+            .OrderBy(s => s.Category.Name)
+            .ThenBy(s => s.Name)
+            .ToListAsync();
+        categories = services.Select(s => s.Category.Name).Distinct().OrderBy(c => c).ToList();
         serviceCategories = await db.ServiceCategories.OrderBy(c => c.Name).ToListAsync();
-        ServiceCategoryIcon.Configure(serviceCategories);
     }
 
     private void ToggleCategoryPanel() => showCategoryPanel = !showCategoryPanel;
 
-    private async Task SaveCategoryIconAsync(ServiceCategory category)
+    private async Task SaveCategoryIconsAsync()
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        var dbCategory = await db.ServiceCategories.FindAsync(category.Id);
-        if (dbCategory is null)
+        var dbCategories = await db.ServiceCategories.ToListAsync();
+        foreach (var dbCategory in dbCategories)
         {
-            return;
+            var edited = serviceCategories.FirstOrDefault(c => c.Id == dbCategory.Id);
+            if (edited is null)
+            {
+                continue;
+            }
+
+            dbCategory.Icon = string.IsNullOrWhiteSpace(edited.Icon) ? ServiceCategory.DefaultIcon : edited.Icon;
         }
 
-        dbCategory.Icon = string.IsNullOrWhiteSpace(category.Icon) ? "\U0001F31F" : category.Icon;
         await db.SaveChangesAsync();
-        ServiceCategoryIcon.SetIcon(dbCategory.Name, dbCategory.Icon);
-        statusMessage = $"Updated icon for {dbCategory.Name}.";
+        statusMessage = "Category icons updated.";
+        showCategoryPanel = false;
+        await LoadServicesAsync();
+    }
+
+    private async Task CancelCategoryIconEdits()
+    {
+        showCategoryPanel = false;
+        await LoadServicesAsync();
     }
 
     private void StartCreate()
     {
-        editingService = new Service { IsActive = true, Category = categories.FirstOrDefault() ?? "" };
-        isAddingNewCategory = categories.Count == 0;
+        editingService = new Service { IsActive = true };
+        editingCategoryId = serviceCategories.FirstOrDefault()?.Id ?? 0;
+        newCategoryName = string.Empty;
+        isAddingNewCategory = serviceCategories.Count == 0;
         validationErrors.Clear();
         statusMessage = null;
     }
@@ -238,12 +245,13 @@ else
         {
             Id = service.Id,
             Name = service.Name,
-            Category = service.Category,
             Description = service.Description,
             DurationMinutes = service.DurationMinutes,
             Price = service.Price,
             IsActive = service.IsActive,
         };
+        editingCategoryId = service.CategoryId;
+        newCategoryName = string.Empty;
         isAddingNewCategory = false;
         validationErrors.Clear();
         statusMessage = null;
@@ -264,15 +272,15 @@ else
         }
 
         var value = e.Value?.ToString() ?? "";
-        if (value == NewCategorySentinel)
+        if (int.TryParse(value, out var id) && id == NewCategorySentinel)
         {
             isAddingNewCategory = true;
-            editingService.Category = "";
+            newCategoryName = "";
         }
         else
         {
             isAddingNewCategory = false;
-            editingService.Category = value;
+            editingCategoryId = int.TryParse(value, out var parsed) ? parsed : 0;
         }
     }
 
@@ -288,7 +296,11 @@ else
         {
             validationErrors.Add("Name is required.");
         }
-        if (string.IsNullOrWhiteSpace(editingService.Category))
+        if (isAddingNewCategory && string.IsNullOrWhiteSpace(newCategoryName))
+        {
+            validationErrors.Add("Category is required.");
+        }
+        else if (!isAddingNewCategory && editingCategoryId == 0)
         {
             validationErrors.Add("Category is required.");
         }
@@ -306,12 +318,31 @@ else
         }
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
+
+        var categoryId = editingCategoryId;
+        if (isAddingNewCategory)
+        {
+            var trimmedName = newCategoryName.Trim();
+            var existing = await db.ServiceCategories.FirstOrDefaultAsync(c => c.Name == trimmedName);
+            if (existing is not null)
+            {
+                categoryId = existing.Id;
+            }
+            else
+            {
+                var newCategory = new ServiceCategory { Name = trimmedName };
+                db.ServiceCategories.Add(newCategory);
+                await db.SaveChangesAsync();
+                categoryId = newCategory.Id;
+            }
+        }
+
         if (editingService.Id == 0)
         {
             db.Services.Add(new Service
             {
                 Name = editingService.Name,
-                Category = editingService.Category,
+                CategoryId = categoryId,
                 Description = editingService.Description,
                 DurationMinutes = editingService.DurationMinutes,
                 Price = editingService.Price,
@@ -325,7 +356,7 @@ else
             if (dbService is not null)
             {
                 dbService.Name = editingService.Name;
-                dbService.Category = editingService.Category;
+                dbService.CategoryId = categoryId;
                 dbService.Description = editingService.Description;
                 dbService.DurationMinutes = editingService.DurationMinutes;
                 dbService.Price = editingService.Price;
