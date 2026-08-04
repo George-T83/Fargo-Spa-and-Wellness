@@ -9,6 +9,7 @@
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject AppointmentNotificationService NotificationService
+@inject StripeCheckoutService StripeCheckout
 @inject IJSRuntime JsRuntime
 @inject NavigationManager NavigationManager
 
@@ -368,12 +369,40 @@ else
             return;
         }
 
+        var refunded = false;
+        if (dbAppt.PaymentStatus == "Paid" && !string.IsNullOrEmpty(dbAppt.StripePaymentIntentId))
+        {
+            try
+            {
+                await StripeCheckout.CreateRefundAsync(dbAppt.StripePaymentIntentId);
+                refunded = true;
+                dbAppt.PaymentStatus = "Refunded";
+            }
+            catch (Stripe.StripeException)
+            {
+                statusMessage = "Appointment cancelled, but the automatic refund failed - please ask an admin to refund this client manually.";
+            }
+        }
+        else if (dbAppt.PaymentStatus == "Paid")
+        {
+            // Paid but no Stripe payment intent means this was marked paid
+            // by an admin outside Stripe (cash/card reader) - there's no
+            // Stripe charge to auto-refund, so flag it instead of silently
+            // doing nothing.
+            statusMessage = "Appointment cancelled. This was marked paid outside Stripe - please ask an admin to refund the client directly if needed.";
+        }
+
         dbAppt.AppointmentStatus = "Cancelled";
         await db.SaveChangesAsync();
 
-        await NotificationService.NotifyCancelledAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, dbAppt.StartTime, dbAppt.EndTime, ChangeActor.Provider);
+        await NotificationService.NotifyCancelledAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, dbAppt.StartTime, dbAppt.EndTime, ChangeActor.Provider, refunded);
 
-        statusMessage = "Appointment cancelled.";
+        if (refunded)
+        {
+            await NotificationService.NotifyRefundIssuedAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, dbAppt.StartTime, dbAppt.Service?.Price ?? 0m, "Provider cancelled the appointment.");
+        }
+
+        statusMessage ??= refunded ? "Appointment cancelled and payment refunded." : "Appointment cancelled.";
         await LoadAppointmentsAsync();
     }
 

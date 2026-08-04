@@ -46,6 +46,10 @@ public static class StripeWebhookEndpoints
                 var baseUri = new Uri($"{http.Request.Scheme}://{http.Request.Host}");
                 await MarkAppointmentPaidAsync(session, dbFactory, emailSender, stripeCheckout, baseUri);
             }
+            else if (stripeEvent.Type == "charge.refunded" && stripeEvent.Data.Object is Charge charge)
+            {
+                await MarkAppointmentRefundedAsync(charge, dbFactory);
+            }
 
             return Results.Ok();
         });
@@ -208,6 +212,29 @@ public static class StripeWebhookEndpoints
         }
     }
 
+    // Keeps PaymentStatus in sync when a refund is issued directly in the
+    // Stripe Dashboard rather than through the app's own cancel flow (which
+    // already sets PaymentStatus="Refunded" itself) - without this, that
+    // appointment would keep counting as "Paid" revenue in Reporting even
+    // though the money was actually returned.
+    public static async Task MarkAppointmentRefundedAsync(Charge charge, IDbContextFactory<AppDbContext> dbFactory)
+    {
+        if (!charge.Refunded || string.IsNullOrEmpty(charge.PaymentIntentId))
+        {
+            return;
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var appt = await db.Appointments.FirstOrDefaultAsync(a => a.StripePaymentIntentId == charge.PaymentIntentId);
+        if (appt is null || appt.PaymentStatus == "Refunded")
+        {
+            return;
+        }
+
+        appt.PaymentStatus = "Refunded";
+        await db.SaveChangesAsync();
+    }
+
     // Deliberately doesn't reuse AppointmentNotificationService here - that
     // service depends on NavigationManager, which is a per-circuit Blazor
     // service and isn't resolvable from a plain minimal-API request pipeline
@@ -235,6 +262,16 @@ public static class StripeWebhookEndpoints
         }
     }
 
-    private static string ClientLine(Family_and_Spa_Wellness.Models.User? client) =>
-        client is null ? "a client" : $"{client.FirstName} {client.LastName}";
+    // Providers only ever see a client's first name and last initial - full
+    // names are reserved for Admins and the client themselves.
+    private static string ClientLine(Family_and_Spa_Wellness.Models.User? client)
+    {
+        if (client is null)
+        {
+            return "a client";
+        }
+
+        var lastInitial = string.IsNullOrEmpty(client.LastName) ? "" : client.LastName[..1].ToUpperInvariant();
+        return $"{client.FirstName} {lastInitial}.";
+    }
 }

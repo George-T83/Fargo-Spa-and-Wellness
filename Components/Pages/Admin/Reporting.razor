@@ -220,8 +220,12 @@ else
         // paid, regardless of completion status - it answers "how much
         // business was booked", not "how much has been delivered so far".
         // Refunded (and never-paid) appointments are excluded, since that
-        // money isn't actually revenue.
-        var paidAppointments = appointments.Where(a => a.PaymentStatus == "Paid").ToList();
+        // money isn't actually revenue. Cancelled appointments are excluded
+        // too, even if PaymentStatus never flipped away from "Paid" (e.g. a
+        // walk-in that was cash-marked paid and later cancelled has no
+        // Stripe charge to auto-refund) - a cancelled booking never counts
+        // as revenue regardless of why the payment side didn't update.
+        var paidAppointments = appointments.Where(a => a.PaymentStatus == "Paid" && a.AppointmentStatus != "Cancelled").ToList();
         var totalRevenue = paidAppointments.Sum(a => a.Service?.Price ?? 0m);
         var uniqueClients = appointments.Select(a => a.ClientId).Distinct().Count();
 

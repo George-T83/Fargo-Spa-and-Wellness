@@ -278,6 +278,14 @@
 
         var existing = await existingQuery.Select(a => new { a.StartTime, a.EndTime }).ToListAsync();
 
+        // Same schedule source Book.razor and the payment webhook use - a
+        // provider's working hours/time-off must block reschedule slots the
+        // same way it blocks new bookings, or a client/provider could
+        // reschedule straight into a day the provider marked unavailable.
+        var schedule = appointment.ProviderId is not null
+            ? await ProviderScheduleService.LoadAsync(db, new List<int> { appointment.ProviderId.Value }, dayStart)
+            : null;
+
         var duration = TimeSpan.FromMinutes(appointment.Service.DurationMinutes);
         var isToday = selectedDate.Date == ClinicClock.Today;
         var generated = new List<TimeSlot>();
@@ -291,8 +299,9 @@
 
             var end = start.Add(duration);
             var overlaps = existing.Any(e => e.StartTime < end && start < e.EndTime);
+            var providerAvailable = schedule is null || schedule.IsWorking(appointment.ProviderId!.Value, start, end);
             var isCurrent = start == appointment.StartTime;
-            generated.Add(new TimeSlot(start, end, !overlaps && !isCurrent, isCurrent));
+            generated.Add(new TimeSlot(start, end, !overlaps && providerAvailable && !isCurrent, isCurrent));
         }
 
         slots = generated;
