@@ -46,6 +46,50 @@ else
         <div class="admin-alert">@statusMessage</div>
     }
 
+    @if (selectedAppointment is not null)
+    {
+        <div class="admin-form-card">
+            <h3>Appointment Details</h3>
+
+            <div class="admin-form-grid">
+                <div class="admin-form-field">
+                    <label>Client</label>
+                    <p class="admin-readonly-value">@(selectedAppointment.Client?.FullName ?? "Unknown client")</p>
+                </div>
+                <div class="admin-form-field">
+                    <label>Service</label>
+                    <p class="admin-readonly-value">@(selectedAppointment.Service?.Name ?? "Unknown service") (@selectedAppointment.Service?.DurationMinutes min)</p>
+                </div>
+                <div class="admin-form-field">
+                    <label>Start</label>
+                    <p class="admin-readonly-value">@selectedAppointment.StartTime.ToString("ddd, MMM d 'at' h:mm tt")</p>
+                </div>
+                <div class="admin-form-field">
+                    <label>End</label>
+                    <p class="admin-readonly-value">@selectedAppointment.EndTime.ToString("ddd, MMM d 'at' h:mm tt")</p>
+                </div>
+            </div>
+
+            <div class="admin-service-actions">
+                <button type="button" class="btn btn-spa-secondary" @onclick="CloseDetails">Close</button>
+            </div>
+
+            @if (selectedAppointment.AppointmentStatus != "Scheduled")
+            {
+                <div class="admin-service-actions" style="margin-top:0.5rem;">
+                    <span class="admin-status-badge @StatusBadgeClass(selectedAppointment.AppointmentStatus)">@selectedAppointment.AppointmentStatus</span>
+                </div>
+            }
+
+            @if (selectedAppointment.AppointmentStatus != "Cancelled")
+            {
+                <div class="admin-service-actions" style="margin-top:0.5rem;">
+                    <span class="admin-status-badge @PaymentBadgeClass(selectedAppointment.PaymentStatus)">@(string.IsNullOrEmpty(selectedAppointment.PaymentStatus) ? "Unpaid" : selectedAppointment.PaymentStatus)</span>
+                </div>
+            }
+        </div>
+    }
+
     <div class="calendar-grid-wrap">
         <div class="calendar-grid">
             <div class="calendar-time-header"></div>
@@ -68,7 +112,8 @@ else
                     {
                         <div class="calendar-appt-block @(conflictIds.Contains(appt.Id) ? "conflict" : "")"
                              title="@BlockTooltip(appt)"
-                             style="top:@(BlockTop(appt))px; height:@(BlockHeight(appt))px">
+                             style="top:@(BlockTop(appt))px; height:@(BlockHeight(appt))px"
+                             @onclick="() => ViewAppointment(appt)">
                             <span class="calendar-appt-time">@appt.StartTime.ToString("h:mmtt")</span>
                             <span class="calendar-appt-client">@(appt.Client?.FullName ?? "Unknown client")</span>
                             <span class="calendar-appt-service">@(appt.Service?.Name ?? "Unknown service")</span>
@@ -98,6 +143,7 @@ else
     private HashSet<int> conflictIds = new();
     private int conflictCount;
     private string? statusMessage;
+    private Appointment? selectedAppointment;
 
     [CascadingParameter]
     private Task<AuthenticationState>? AuthStateTask { get; set; }
@@ -186,6 +232,30 @@ else
     private static string BlockTooltip(Appointment appt) =>
         $"{appt.StartTime:h:mm tt}-{appt.EndTime:h:mm tt}: {appt.Client?.FullName} - {appt.Service?.Name}";
 
+    private void ViewAppointment(Appointment appt)
+    {
+        selectedAppointment = appt;
+    }
+
+    private void CloseDetails()
+    {
+        selectedAppointment = null;
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Completed" => "completed",
+        "NoShow" => "noshow",
+        _ => "pending",
+    };
+
+    private static string PaymentBadgeClass(string paymentStatus) => paymentStatus switch
+    {
+        "Paid" => "completed",
+        "Refunded" => "noshow",
+        _ => "pending",
+    };
+
     private async Task ConfirmAndCancelAsync(Appointment appt)
     {
         var confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Cancel this appointment? This can't be undone.");
@@ -240,6 +310,10 @@ else
         }
 
         statusMessage ??= refunded ? "Appointment cancelled and payment refunded." : "Appointment cancelled.";
+        if (selectedAppointment?.Id == appt.Id)
+        {
+            selectedAppointment = null;
+        }
         await LoadWeekAsync();
     }
 }
