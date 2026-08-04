@@ -63,7 +63,7 @@
                     else
                     {
                         <h2 class="booking-card-title">Pick a new date &amp; time</h2>
-                        <p class="booking-card-subtitle">Business hours are 9:00 AM to 5:00 PM.</p>
+                        <p class="booking-card-subtitle">@HoursSubtitle()</p>
 
                         <div class="booking-calendar-nav">
                             <button type="button" class="booking-calendar-nav-btn" disabled="@IsCurrentWeek" @onclick="GoToPreviousWeek">&lsaquo;</button>
@@ -86,6 +86,10 @@
                         @if (loadingSlots)
                         {
                             <p class="booking-slots-hint">Checking availability...</p>
+                        }
+                        else if (!businessHours.IsOpen)
+                        {
+                            <p class="booking-slots-hint">We're closed on this date. Try another day.</p>
                         }
                         else if (slots.Count == 0)
                         {
@@ -127,9 +131,9 @@
     [CascadingParameter]
     private Task<AuthenticationState>? AuthStateTask { get; set; }
 
-    private static readonly TimeSpan OpeningTime = TimeSpan.FromHours(9);
-    private static readonly TimeSpan ClosingTime = TimeSpan.FromHours(17);
     private static readonly TimeSpan SlotInterval = TimeSpan.FromMinutes(30);
+
+    private EffectiveHours businessHours = new(false, TimeSpan.Zero, TimeSpan.Zero);
 
     private bool loading = true;
     private bool notFound;
@@ -269,6 +273,14 @@
         var dayStart = selectedDate.Date;
         var dayEnd = dayStart.AddDays(1);
 
+        businessHours = await BusinessHoursService.LoadForDateAsync(db, selectedDate);
+        if (!businessHours.IsOpen)
+        {
+            slots = new List<TimeSlot>();
+            loadingSlots = false;
+            return;
+        }
+
         var existingQuery = db.Appointments
             .Where(a => a.Id != appointment.Id && a.AppointmentStatus != "Cancelled" && a.StartTime < dayEnd && a.EndTime > dayStart);
         if (appointment.ProviderId is not null)
@@ -278,11 +290,7 @@
 
         var existing = await existingQuery.Select(a => new { a.StartTime, a.EndTime }).ToListAsync();
 
-        // Same schedule source Book.razor and the payment webhook use - a
-        // provider's working hours/time-off must block reschedule slots the
-        // same way it blocks new bookings, or a client/provider could
-        // reschedule straight into a day the provider marked unavailable.
-        var schedule = appointment.ProviderId is not null
+        ProviderSchedule? schedule = appointment.ProviderId is not null
             ? await ProviderScheduleService.LoadAsync(db, new List<int> { appointment.ProviderId.Value }, dayStart)
             : null;
 
@@ -290,7 +298,7 @@
         var isToday = selectedDate.Date == ClinicClock.Today;
         var generated = new List<TimeSlot>();
 
-        for (var start = dayStart.Add(OpeningTime); start.Add(duration) <= dayStart.Add(ClosingTime); start = start.Add(SlotInterval))
+        for (var start = dayStart.Add(businessHours.OpenTime); start.Add(duration) <= dayStart.Add(businessHours.CloseTime); start = start.Add(SlotInterval))
         {
             if (isToday && start <= ClinicClock.Now)
             {
@@ -301,12 +309,20 @@
             var overlaps = existing.Any(e => e.StartTime < end && start < e.EndTime);
             var providerAvailable = schedule is null || schedule.IsWorking(appointment.ProviderId!.Value, start, end);
             var isCurrent = start == appointment.StartTime;
-            generated.Add(new TimeSlot(start, end, !overlaps && providerAvailable && !isCurrent, isCurrent));
+            var providerWorking = schedule is null || schedule.IsWorking(appointment.ProviderId!.Value, start, end);
+            generated.Add(new TimeSlot(start, end, providerWorking && !overlaps && !isCurrent, isCurrent));
         }
 
         slots = generated;
         loadingSlots = false;
     }
+
+    private string HoursSubtitle() =>
+        businessHours.IsOpen
+            ? $"Hours for {selectedDate:dddd, MMM d}: {FormatTime(businessHours.OpenTime)} to {FormatTime(businessHours.CloseTime)}. Your treatment and provider stay the same."
+            : $"We're closed on {selectedDate:dddd, MMM d}.";
+
+    private static string FormatTime(TimeSpan t) => DateTime.Today.Add(t).ToString("h:mm tt");
 
     private async Task ConfirmRescheduleAsync()
     {
@@ -338,6 +354,25 @@
         {
             errorMessage = "That's already your scheduled time. Pick a different time slot to reschedule.";
             return;
+        }
+
+        var hoursThatDay = await BusinessHoursService.LoadForDateAsync(db, newStart.Date);
+        if (!hoursThatDay.IsOpen || newStart.TimeOfDay < hoursThatDay.OpenTime || newEnd.TimeOfDay > hoursThatDay.CloseTime)
+        {
+            errorMessage = "That date/time is no longer available. Please choose another.";
+            await LoadSlotsAsync();
+            return;
+        }
+
+        if (dbAppt.ProviderId is not null)
+        {
+            var schedule = await ProviderScheduleService.LoadAsync(db, new List<int> { dbAppt.ProviderId.Value }, newStart.Date);
+            if (!schedule.IsWorking(dbAppt.ProviderId.Value, newStart, newEnd))
+            {
+                errorMessage = "Your provider isn't working at that time. Please choose another.";
+                await LoadSlotsAsync();
+                return;
+            }
         }
 
         var conflictQuery = db.Appointments.Where(a => a.Id != dbAppt.Id && a.AppointmentStatus != "Cancelled" && a.StartTime < newEnd && newStart < a.EndTime);

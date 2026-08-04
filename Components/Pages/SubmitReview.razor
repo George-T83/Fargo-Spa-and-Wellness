@@ -101,6 +101,8 @@
     private string? errorMessage;
     private int currentUserId;
     private string clientFirstName = "A client";
+    private string? clientEmail;
+    private bool clientNotifyByEmail = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -126,6 +128,8 @@
         if (user is not null)
         {
             clientFirstName = user.FirstName;
+            clientEmail = user.Email;
+            clientNotifyByEmail = user.NotifyByEmail;
         }
 
         loading = false;
@@ -159,6 +163,16 @@
             $"<p><strong>{System.Net.WebUtility.HtmlEncode(clientFirstName)}</strong> submitted a new review ({stars}) that's awaiting moderation.</p>" +
             $"<p>&ldquo;{System.Net.WebUtility.HtmlEncode(model.ReviewText.Trim())}&rdquo;</p>" +
             $"<p>Find the review under the Reviews section here: <a href=\"{reviewsUrl}\">{reviewsUrl}</a></p>");
+
+        if (clientNotifyByEmail && !string.IsNullOrEmpty(clientEmail))
+        {
+            await EmailSender.SendAsync(
+                clientEmail,
+                "We received your review - Fargo Spa and Wellness",
+                $"<p>Hi {System.Net.WebUtility.HtmlEncode(clientFirstName)},</p>" +
+                "<p>Thanks for sharing your experience! Your review has been submitted and will be reviewed by our team before it appears publicly.</p>" +
+                "<p>We'll let you know once it's been approved.</p>");
+        }
 
         submitted = true;
     }

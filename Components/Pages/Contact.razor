@@ -1,9 +1,12 @@
 @page "/contact"
 @rendermode InteractiveServer
+@using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Services
+@using Microsoft.EntityFrameworkCore
 @using Microsoft.Extensions.Options
 @inject IEmailSender EmailSender
 @inject IOptions<SmtpOptions> SmtpConfig
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <PageTitle>Contact Us - Fargo Spa and Wellness</PageTitle>
 
@@ -58,7 +61,38 @@
                         </span>
                         <div>
                             <p class="contact-info-label">Hours</p>
-                            <p class="contact-info-text">Mon&ndash;Fri: 9am &ndash; 8pm<br />Sat&ndash;Sun: 10am &ndash; 6pm</p>
+                            @if (hoursGroups is null)
+                            {
+                                <p class="contact-info-text">Loading...</p>
+                            }
+                            else
+                            {
+                                <p class="contact-info-text">
+                                    @for (var i = 0; i < hoursGroups.Count; i++)
+                                    {
+                                        @hoursGroups[i]
+                                        if (i < hoursGroups.Count - 1)
+                                        {
+                                            <br />
+                                        }
+                                    }
+                                </p>
+                            }
+
+                            @if (upcomingOverrides is { Count: > 0 })
+                            {
+                                <p class="contact-info-text contact-hours-exceptions">
+                                    <strong>Upcoming exceptions:</strong><br />
+                                    @for (var i = 0; i < upcomingOverrides.Count; i++)
+                                    {
+                                        @FormatOverride(upcomingOverrides[i])
+                                        if (i < upcomingOverrides.Count - 1)
+                                        {
+                                            <br />
+                                        }
+                                    }
+                                </p>
+                            }
                         </div>
                     </div>
                 </div>
@@ -125,10 +159,96 @@
 </section>
 
 @code {
+    // Overrides more than this many days out aren't shown here - a running
+    // list of every exception on record isn't useful to a visitor deciding
+    // whether to drop by this week.
+    private const int OverrideLookaheadDays = 14;
+
     private readonly ContactModel model = new();
     private bool sending;
     private bool submitted;
     private string? errorMessage;
+
+    private List<string>? hoursGroups;
+    private List<Family_and_Spa_Wellness.Models.BusinessHoursOverride>? upcomingOverrides;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var weekly = await db.BusinessHours.ToListAsync();
+        hoursGroups = BuildHoursGroups(weekly);
+        upcomingOverrides = await BusinessHoursService.GetUpcomingOverridesAsync(db, ClinicClock.Today, OverrideLookaheadDays);
+    }
+
+    // Displays the week starting Monday, collapsing consecutive days that
+    // share the same open/closed state and hours into one line (e.g.
+    // "Mon-Fri: 9:00 AM - 5:00 PM") the way the old static text did.
+    private static List<string> BuildHoursGroups(List<Family_and_Spa_Wellness.Models.BusinessHours> weekly)
+    {
+        var order = new[]
+        {
+            DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+            DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday,
+        };
+
+        var byDay = weekly.ToDictionary(h => h.DayOfWeek);
+        var groups = new List<(DayOfWeek Start, DayOfWeek End, string Text)>();
+
+        foreach (var day in order)
+        {
+            var text = byDay.TryGetValue(day, out var h) && h.IsOpen
+                ? $"{FormatTime(h.OpenTime)} – {FormatTime(h.CloseTime)}"
+                : "Closed";
+
+            if (groups.Count > 0 && groups[^1].Text == text)
+            {
+                groups[^1] = groups[^1] with { End = day };
+            }
+            else
+            {
+                groups.Add((day, day, text));
+            }
+        }
+
+        return groups.Select(g => $"{DayLabel(g.Start, g.End)}: {g.Text}").ToList();
+    }
+
+    private static string DayLabel(DayOfWeek start, DayOfWeek end) =>
+        start == end ? Abbrev(start) : $"{Abbrev(start)}–{Abbrev(end)}";
+
+    private static string Abbrev(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Monday => "Mon",
+        DayOfWeek.Tuesday => "Tue",
+        DayOfWeek.Wednesday => "Wed",
+        DayOfWeek.Thursday => "Thu",
+        DayOfWeek.Friday => "Fri",
+        DayOfWeek.Saturday => "Sat",
+        _ => "Sun",
+    };
+
+    private static string FormatTime(TimeSpan t) => DateTime.Today.Add(t).ToString("h:mm tt");
+
+    private static string FormatOverride(Family_and_Spa_Wellness.Models.BusinessHoursOverride o)
+    {
+        var when = o.Date.ToString("ddd, MMM d");
+        if (o.IsClosed)
+        {
+            return $"{when}: Closed{(string.IsNullOrWhiteSpace(o.Reason) ? "" : $" ({o.Reason})")}";
+        }
+
+        var parts = new List<string>();
+        if (o.OpenTime is { } openT)
+        {
+            parts.Add($"opening at {FormatTime(openT)}");
+        }
+        if (o.CloseTime is { } closeT)
+        {
+            parts.Add($"closing at {FormatTime(closeT)}");
+        }
+        var detail = parts.Count > 0 ? string.Join(", ", parts) : "hours adjusted";
+        return $"{when}: {detail}{(string.IsNullOrWhiteSpace(o.Reason) ? "" : $" ({o.Reason})")}";
+    }
 
     private async Task HandleSubmit()
     {

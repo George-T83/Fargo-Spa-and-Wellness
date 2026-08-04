@@ -92,6 +92,12 @@ public static class StripeWebhookEndpoints
             return;
         }
 
+        // Re-check business hours too, not just provider availability - an
+        // admin may have closed early or changed hours between checkout
+        // start and payment clearing.
+        var hoursThatDay = await BusinessHoursService.LoadForDateAsync(db, start.Date);
+        var withinHours = hoursThatDay.IsOpen && start.TimeOfDay >= hoursThatDay.OpenTime && end.TimeOfDay <= hoursThatDay.CloseTime;
+
         // Re-check the slot at the moment payment actually clears, since time
         // has passed since checkout started and someone else may have taken
         // it (or the provider went on time off) - if it's gone, refund the
@@ -111,7 +117,12 @@ public static class StripeWebhookEndpoints
 
         int? assignedProviderId;
         bool slotStillAvailable;
-        if (requestedProviderId is not null)
+        if (!withinHours)
+        {
+            assignedProviderId = null;
+            slotStillAvailable = false;
+        }
+        else if (requestedProviderId is not null)
         {
             slotStillAvailable = !overlapping.Contains(requestedProviderId) && schedule.IsWorking(requestedProviderId.Value, start, end);
             assignedProviderId = slotStillAvailable ? requestedProviderId : null;
@@ -128,8 +139,11 @@ public static class StripeWebhookEndpoints
 
             if (freeProviderIds.Count == 0)
             {
+                // No provider is free for this slot - whether because every
+                // provider is busy/off, or because there are no providers in
+                // the system at all - so nothing can staff this appointment.
                 assignedProviderId = null;
-                slotStillAvailable = candidateProviderIds.Count == 0;
+                slotStillAvailable = false;
             }
             else
             {

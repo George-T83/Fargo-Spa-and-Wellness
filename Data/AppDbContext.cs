@@ -13,6 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ProviderAvailability> ProviderAvailability => Set<ProviderAvailability>();
     public DbSet<ProviderShift> ProviderShifts => Set<ProviderShift>();
     public DbSet<ServiceCategory> ServiceCategories => Set<ServiceCategory>();
+    public DbSet<BusinessHours> BusinessHours => Set<BusinessHours>();
+    public DbSet<BusinessHoursOverride> BusinessHoursOverrides => Set<BusinessHoursOverride>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,6 +74,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<ServiceCategory>()
             .HasIndex(c => c.Name)
             .IsUnique();
+
+        modelBuilder.Entity<BusinessHours>()
+            .HasIndex(h => h.DayOfWeek)
+            .IsUnique();
+
+        modelBuilder.Entity<BusinessHoursOverride>()
+            .HasIndex(o => o.Date)
+            .IsUnique();
+
+        // Seeded to a single consistent 9 AM - 5 PM, seven days a week -
+        // replaces the three different hardcoded values that used to live
+        // independently in Book.razor, Reschedule.razor, and Contact.razor.
+        // Admins can edit per day (including marking a day closed) from
+        // /admin/hours.
+        modelBuilder.Entity<Models.BusinessHours>().HasData(
+            new Models.BusinessHours { Id = 1, DayOfWeek = DayOfWeek.Sunday, IsOpen = true, OpenTime = new TimeSpan(9, 0, 0), CloseTime = new TimeSpan(17, 0, 0) },
+            new Models.BusinessHours { Id = 2, DayOfWeek = DayOfWeek.Monday, IsOpen = true, OpenTime = new TimeSpan(9, 0, 0), CloseTime = new TimeSpan(17, 0, 0) },
+            new Models.BusinessHours { Id = 3, DayOfWeek = DayOfWeek.Tuesday, IsOpen = true, OpenTime = new TimeSpan(9, 0, 0), CloseTime = new TimeSpan(17, 0, 0) },
+            new Models.BusinessHours { Id = 4, DayOfWeek = DayOfWeek.Wednesday, IsOpen = true, OpenTime = new TimeSpan(9, 0, 0), CloseTime = new TimeSpan(17, 0, 0) },
+            new Models.BusinessHours { Id = 5, DayOfWeek = DayOfWeek.Thursday, IsOpen = true, OpenTime = new TimeSpan(9, 0, 0), CloseTime = new TimeSpan(17, 0, 0) },
+            new Models.BusinessHours { Id = 6, DayOfWeek = DayOfWeek.Friday, IsOpen = true, OpenTime = new TimeSpan(9, 0, 0), CloseTime = new TimeSpan(17, 0, 0) },
+            new Models.BusinessHours { Id = 7, DayOfWeek = DayOfWeek.Saturday, IsOpen = true, OpenTime = new TimeSpan(9, 0, 0), CloseTime = new TimeSpan(17, 0, 0) }
+        );
 
         // Seeded to match the icons ServiceCategoryIcon previously hardcoded,
         // plus "Wellness" for the deactivated Lavender Relaxation Ritual

@@ -4,9 +4,12 @@
 @attribute [Authorize(Roles = "Admin")]
 @using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Family_and_Spa_Wellness.Services
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IEmailSender EmailSender
+@inject NavigationManager NavigationManager
 
 <PageTitle>User Roles - Fargo Spa and Wellness</PageTitle>
 
@@ -127,12 +130,58 @@ else
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
         var dbUser = await db.Users.FindAsync(user.Id);
-        if (dbUser is not null)
+        if (dbUser is not null && dbUser.Role != newRole)
         {
+            var oldRole = dbUser.Role;
             dbUser.Role = newRole;
             await db.SaveChangesAsync();
             statusMessage = $"{dbUser.FullName}'s role updated to {newRole}.";
+
+            if (dbUser.NotifyByEmail)
+            {
+                await SendRoleChangeEmailAsync(dbUser, oldRole, newRole);
+            }
+
             await LoadUsers();
         }
+    }
+
+    // Client < Provider < Admin - used only to tell a promotion from a
+    // downgrade so the email reads right ("upgraded" vs. "access has
+    // changed"); the dashboard link itself is always just wherever the new
+    // role actually lands them.
+    private static int RoleRank(string role) => role switch
+    {
+        "Admin" => 2,
+        "Provider" => 1,
+        _ => 0,
+    };
+
+    private static string DashboardPathFor(string role) => role switch
+    {
+        "Admin" => "/admin",
+        "Provider" => "/admin/dashboard",
+        _ => "/dashboard",
+    };
+
+    private async Task SendRoleChangeEmailAsync(User user, string oldRole, string newRole)
+    {
+        var dashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), DashboardPathFor(newRole));
+        var isPromotion = RoleRank(newRole) > RoleRank(oldRole);
+
+        var subject = isPromotion
+            ? "Your account has been upgraded - Fargo Spa and Wellness"
+            : "Your account access has changed - Fargo Spa and Wellness";
+
+        var headline = isPromotion
+            ? $"Your account has been upgraded from {oldRole} to <strong>{newRole}</strong>."
+            : $"Your account access has changed from {oldRole} to <strong>{newRole}</strong>.";
+
+        await EmailSender.SendAsync(
+            user.Email,
+            subject,
+            $"<p>Hi {user.FirstName},</p>" +
+            $"<p>{headline}</p>" +
+            $"<p>Log in here: <a href=\"{dashboardUrl}\">{dashboardUrl}</a></p>");
     }
 }

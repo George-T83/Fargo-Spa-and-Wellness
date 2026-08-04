@@ -98,14 +98,19 @@
                     </div>
 
                     <div class="auth-card mt-3">
-                        <h2 class="booking-card-title">Past Appointments</h2>
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h2 class="booking-card-title mb-0">Past Appointments</h2>
+                            @if (past.Count > 0)
+                            {
+                                <button type="button" class="btn btn-spa-secondary btn-sm" @onclick='() => NavigationManager.NavigateTo("/review")'>Leave a Review</button>
+                            }
+                        </div>
                         @if (past.Count == 0)
                         {
                             <p class="booking-card-subtitle">No past appointments yet.</p>
                         }
                         else
                         {
-                            <button type="button" class="btn btn-spa-secondary btn-sm mb-3" @onclick='() => NavigationManager.NavigateTo("/review")'>Leave a Review</button>
                             @foreach (var a in past)
                             {
                                 <div class="dashboard-appt-row past">
