@@ -8,6 +8,9 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject AppointmentNotificationService NotificationService
+@inject StripeCheckoutService StripeCheckout
+@inject IJSRuntime JsRuntime
 
 <PageTitle>My Calendar - Fargo Spa and Wellness</PageTitle>
 
@@ -38,6 +41,11 @@ else
         </div>
     }
 
+    @if (statusMessage is not null)
+    {
+        <div class="admin-alert">@statusMessage</div>
+    }
+
     <div class="calendar-grid-wrap">
         <div class="calendar-grid">
             <div class="calendar-time-header"></div>
@@ -63,6 +71,13 @@ else
                              style="top:@(BlockTop(appt))px; height:@(BlockHeight(appt))px">
                             <span class="calendar-appt-time">@appt.StartTime.ToString("h:mmtt")</span>
                             <span>@(appt.Client?.FullName ?? "Unknown client")</span>
+                            @if (appt.StartTime > ClinicClock.Now && appt.AppointmentStatus != "Cancelled")
+                            {
+                                <div class="calendar-appt-actions">
+                                    <a href="/reschedule/@appt.Id" class="calendar-appt-action-link" @onclick:stopPropagation="true">Reschedule</a>
+                                    <button type="button" class="calendar-appt-action-link cancel" @onclick="() => ConfirmAndCancelAsync(appt)" @onclick:stopPropagation="true">Cancel</button>
+                                </div>
+                            }
                         </div>
                     }
                 </div>
@@ -72,9 +87,6 @@ else
 }
 
 @code {
-    // Read-only: providers can see their own week here; rescheduling/
-    // cancelling is an admin override capability (Master Calendar), not
-    // something a provider does to their own bookings today.
     private const int StartHour = 8;
     private const int EndHour = 19;
     private const int PxPerHour = 60;
@@ -84,6 +96,7 @@ else
     private List<Appointment>? appointments;
     private HashSet<int> conflictIds = new();
     private int conflictCount;
+    private string? statusMessage;
 
     [CascadingParameter]
     private Task<AuthenticationState>? AuthStateTask { get; set; }
@@ -171,4 +184,61 @@ else
 
     private static string BlockTooltip(Appointment appt) =>
         $"{appt.StartTime:h:mm tt}-{appt.EndTime:h:mm tt}: {appt.Client?.FullName} - {appt.Service?.Name}";
+
+    private async Task ConfirmAndCancelAsync(Appointment appt)
+    {
+        var confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Cancel this appointment? This can't be undone.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbAppt = await db.Appointments
+            .Include(a => a.Client)
+            .Include(a => a.Provider)
+            .Include(a => a.Service)
+            .FirstOrDefaultAsync(a => a.Id == appt.Id);
+
+        if (dbAppt is null)
+        {
+            return;
+        }
+
+        var refunded = false;
+        if (dbAppt.PaymentStatus == "Paid" && !string.IsNullOrEmpty(dbAppt.StripePaymentIntentId))
+        {
+            try
+            {
+                await StripeCheckout.CreateRefundAsync(dbAppt.StripePaymentIntentId);
+                refunded = true;
+                dbAppt.PaymentStatus = "Refunded";
+            }
+            catch (Stripe.StripeException)
+            {
+                statusMessage = "Appointment cancelled, but the automatic refund failed - please ask an admin to refund this client manually.";
+            }
+        }
+        else if (dbAppt.PaymentStatus == "Paid")
+        {
+            // Paid but no Stripe payment intent means this was marked paid
+            // by an admin outside Stripe (cash/card reader) - there's no
+            // Stripe charge to auto-refund, so flag it instead of silently
+            // doing nothing.
+            statusMessage = "Appointment cancelled. This was marked paid outside Stripe - please ask an admin to refund the client directly if needed.";
+        }
+
+        dbAppt.AppointmentStatus = "Cancelled";
+        await db.SaveChangesAsync();
+
+        await NotificationService.NotifyCancelledAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, dbAppt.StartTime, dbAppt.EndTime, ChangeActor.Provider, refunded);
+
+        if (refunded)
+        {
+            await NotificationService.NotifyRefundIssuedAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, dbAppt.StartTime, dbAppt.Service?.Price ?? 0m, "Provider cancelled the appointment.");
+        }
+
+        statusMessage ??= refunded ? "Appointment cancelled and payment refunded." : "Appointment cancelled.";
+        await LoadWeekAsync();
+    }
 }

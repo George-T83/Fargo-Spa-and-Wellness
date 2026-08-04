@@ -44,15 +44,33 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
             ? $"<p>Your payment of <strong>{service?.Price.ToString("C")}</strong> has been refunded and should appear on your original payment method within a few business days.</p>"
             : string.Empty;
 
-        if (actor == ChangeActor.Client && provider is not null)
+        if (actor == ChangeActor.Client)
         {
-            await NotifyAsync(
-                provider,
-                "An appointment was cancelled - Fargo Spa and Wellness",
-                $"<p>Hi {provider.FirstName},</p>" +
-                $"<p>{ClientLine(client)} cancelled their <strong>{serviceName}</strong> appointment that was scheduled for {when}.</p>" +
-                (refunded ? $"<p>The client's payment of <strong>{service?.Price.ToString("C")}</strong> has been refunded.</p>" : string.Empty) +
-                PortalLink(ProviderPortalUrl));
+            // The client initiated this themselves, but they still need a
+            // receipt - especially when money actually moved. Without this,
+            // a self-cancel refund left the client with no paper trail
+            // beyond the transient on-page status message.
+            if (client is not null)
+            {
+                await NotifyAsync(
+                    client,
+                    "Your appointment was cancelled - Fargo Spa and Wellness",
+                    $"<p>Hi {client.FirstName},</p>" +
+                    $"<p>Your <strong>{serviceName}</strong> appointment scheduled for {when} has been cancelled, as requested.</p>" +
+                    refundLine +
+                    ClientContactLine());
+            }
+
+            if (provider is not null)
+            {
+                await NotifyAsync(
+                    provider,
+                    "An appointment was cancelled - Fargo Spa and Wellness",
+                    $"<p>Hi {provider.FirstName},</p>" +
+                    $"<p>{ClientLine(client)} cancelled their <strong>{serviceName}</strong> appointment that was scheduled for {when}.</p>" +
+                    (refunded ? $"<p>The client's payment of <strong>{service?.Price.ToString("C")}</strong> has been refunded.</p>" : string.Empty) +
+                    PortalLink(ProviderPortalUrl));
+            }
         }
         else if (actor == ChangeActor.Provider && client is not null)
         {
@@ -62,6 +80,7 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
                 $"<p>Hi {client.FirstName},</p>" +
                 $"<p>Your <strong>{serviceName}</strong> appointment scheduled for {when} has been cancelled by {ProviderLine(provider)}. " +
                 "Please contact us or book a new time that works for you.</p>" +
+                refundLine +
                 ClientContactLine());
         }
         else if (actor == ChangeActor.Admin)
@@ -186,19 +205,26 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
         await using var db = await dbContextFactory.CreateDbContextAsync();
         var admins = await db.Users.Where(u => u.Role == "Admin").ToListAsync();
 
-        var body = $"<p>A refund of <strong>{amountText}</strong> was issued for {ClientLine(client)}'s <strong>{serviceName}</strong> " +
+        // Providers only get the abbreviated client name (ClientLine);
+        // Admins are trusted with the full name, since they're the ones who
+        // may need to look the client up.
+        var providerBody = $"<p>A refund of <strong>{amountText}</strong> was issued for {ClientLine(client)}'s <strong>{serviceName}</strong> " +
+                   $"appointment scheduled for {when}.</p>" +
+                   $"<p>Reason: {reason}</p>" +
+                   "<p>This amount has been excluded from revenue reporting.</p>";
+        var adminBody = $"<p>A refund of <strong>{amountText}</strong> was issued for {(client is null ? "a client" : client.FullName)}'s <strong>{serviceName}</strong> " +
                    $"appointment scheduled for {when}.</p>" +
                    $"<p>Reason: {reason}</p>" +
                    "<p>This amount has been excluded from revenue reporting.</p>";
 
         if (provider is not null)
         {
-            await NotifyAsync(provider, "Refund issued - Fargo Spa and Wellness", $"<p>Hi {provider.FirstName},</p>" + body + PortalLink(ProviderPortalUrl));
+            await NotifyAsync(provider, "Refund issued - Fargo Spa and Wellness", $"<p>Hi {provider.FirstName},</p>" + providerBody + PortalLink(ProviderPortalUrl));
         }
 
         foreach (var admin in admins)
         {
-            await NotifyAsync(admin, "Refund issued - Fargo Spa and Wellness", $"<p>Hi {admin.FirstName},</p>" + body);
+            await NotifyAsync(admin, "Refund issued - Fargo Spa and Wellness", $"<p>Hi {admin.FirstName},</p>" + adminBody);
         }
     }
 
@@ -208,8 +234,14 @@ public class AppointmentNotificationService(IEmailSender emailSender, Navigation
     private string ClientContactLine() =>
         $"<p>Questions? Call us at {BusinessPhone} or visit our <a href=\"{ContactUrl}\">Contact Us</a> page.</p>";
 
+    // Providers only ever see a client's first name and last initial - never
+    // the full name or email address. Full identity is reserved for Admins
+    // (who see FullName directly in the admin UI) and the client themselves.
     private static string ClientLine(User? client) =>
-        client is null ? "A client" : $"{client.FullName} ({client.Email})";
+        client is null ? "A client" : $"{client.FirstName} {LastInitial(client)}.";
+
+    private static string LastInitial(User client) =>
+        string.IsNullOrEmpty(client.LastName) ? "" : client.LastName[..1].ToUpperInvariant();
 
     private static string ProviderLine(User? provider) =>
         provider is null ? "your provider" : provider.FullName;

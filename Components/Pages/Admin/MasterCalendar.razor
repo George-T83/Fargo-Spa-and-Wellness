@@ -145,7 +145,7 @@ else
                     <span class="admin-status-badge @PaymentBadgeClass(editingAppointment.PaymentStatus)">@(string.IsNullOrEmpty(editingAppointment.PaymentStatus) ? "Unpaid" : editingAppointment.PaymentStatus)</span>
                     @if (string.IsNullOrEmpty(editingAppointment.PaymentStatus) || editingAppointment.PaymentStatus == "Unpaid")
                     {
-                        <button type="button" class="btn btn-spa-secondary btn-sm" @onclick="MarkPaidAsync">Mark as paid</button>
+                        <button type="button" class="btn btn-spa-secondary btn-sm" title="For walk-ins/manual bookings paid outside Stripe (cash, card reader) - records that payment was collected so it counts toward revenue. There's no Stripe charge behind it, so cancelling later won't auto-refund." @onclick="MarkPaidAsync">Mark as paid (cash/other)</button>
                     }
                 </div>
             }
@@ -384,6 +384,36 @@ else
         var providerId = editingProviderId == 0 ? (int?)null : editingProviderId;
 
         await using var db = await DbContextFactory.CreateDbContextAsync();
+
+        // Same rule Book.razor and the payment webhook already enforce -
+        // don't let an admin silently double-book or schedule a provider
+        // during their time off. Skipped when unassigning (providerId is
+        // null), since that can never conflict with anything.
+        if (providerId is not null)
+        {
+            var schedule = await ProviderScheduleService.LoadAsync(db, new List<int> { providerId.Value }, editingAppointment.StartTime.Date);
+            if (!schedule.IsWorking(providerId.Value, editingAppointment.StartTime, editingAppointment.EndTime))
+            {
+                validationErrors.Add("Selected provider isn't scheduled to work during this time.");
+            }
+
+            var hasOverlap = await db.Appointments.AnyAsync(a =>
+                a.Id != editingAppointment.Id &&
+                a.ProviderId == providerId.Value &&
+                a.AppointmentStatus != "Cancelled" &&
+                a.StartTime < editingAppointment.EndTime &&
+                editingAppointment.StartTime < a.EndTime);
+            if (hasOverlap)
+            {
+                validationErrors.Add("Selected provider already has another appointment during this time.");
+            }
+
+            if (validationErrors.Count > 0)
+            {
+                return;
+            }
+        }
+
         var previousProviderId = (int?)null;
         DateTime? previousStart = null;
         DateTime? previousEnd = null;
@@ -441,13 +471,39 @@ else
         // the actual "reschedule" case FSW-16 cares about - notify both the
         // client and the still-assigned provider, admin-framed (no admin
         // identity in the email body/sender - see AppointmentNotificationService).
+        // Only pass the provider through when they were already on this
+        // booking before this save - a provider who was just (re)assigned in
+        // this same save already got their own "assigned" email above with
+        // the correct new time, so also telling them it was "rescheduled
+        // from" a time they never had would just be confusing/duplicative.
         if (!isNewBooking && previousStart is not null && previousEnd is not null &&
             (previousStart != editingAppointment.StartTime || previousEnd != editingAppointment.EndTime))
         {
             var client = clients.FirstOrDefault(c => c.Id == editingAppointment.ClientId);
-            var provider = providerId is not null ? providers.FirstOrDefault(p => p.Id == providerId) : null;
+            var providerStayedSame = providerId is not null && providerId == previousProviderId;
+            var provider = providerStayedSame ? providers.FirstOrDefault(p => p.Id == providerId) : null;
             var service = services.FirstOrDefault(s => s.Id == editingAppointment.ServiceId);
             await NotificationService.NotifyRescheduledAsync(client, provider, service, previousStart.Value, previousEnd.Value, editingAppointment.StartTime, editingAppointment.EndTime, ChangeActor.Admin);
+        }
+        // Provider reassigned but the time stayed the same - the client
+        // isn't covered by any branch above (NotifyProviderAsync only
+        // emails providers), so without this they'd show up expecting their
+        // old provider with no warning at all.
+        else if (!isNewBooking && providerId is not null && previousProviderId is not null && providerId != previousProviderId)
+        {
+            var client = clients.FirstOrDefault(c => c.Id == editingAppointment.ClientId);
+            var newProvider = providers.FirstOrDefault(p => p.Id == providerId);
+            var service = services.FirstOrDefault(s => s.Id == editingAppointment.ServiceId);
+            if (client is not null && client.NotifyByEmail)
+            {
+                var when = $"{editingAppointment.StartTime:dddd, MMMM d} from {editingAppointment.StartTime:h:mm tt} to {editingAppointment.EndTime:h:mm tt}";
+                await EmailSender.SendAsync(
+                    client.Email,
+                    "Your provider has changed - Fargo Spa and Wellness",
+                    $"<p>Hi {client.FirstName},</p>" +
+                    $"<p>Your <strong>{service?.Name ?? "treatment"}</strong> appointment on {when} will now be with {(newProvider is null ? "a different provider" : newProvider.FullName)}. The time is unchanged.</p>" +
+                    "<p>Questions? Call us or visit our Contact page.</p>");
+            }
         }
 
         editingAppointment = null;
@@ -465,7 +521,7 @@ else
         }
 
         var serviceName = service?.Name ?? "a treatment";
-        var clientName = client?.FullName ?? "a client";
+        var clientName = ClientShortName(client);
         var when = $"{start:dddd, MMMM d} from {start:h:mm tt} to {end:h:mm tt}";
 
         var (subject, bodyIntro) = reason switch
@@ -478,12 +534,30 @@ else
             _ => ("Appointment update", $"There's an update to your <strong>{serviceName}</strong> appointment with {clientName} on {when}."),
         };
 
+        if (!provider.NotifyByEmail)
+        {
+            return;
+        }
+
         var providerDashboardUrl = new Uri(new Uri(NavigationManager.BaseUri), "/admin/dashboard");
         await EmailSender.SendAsync(
             provider.Email,
             $"{subject} - Fargo Spa and Wellness",
             $"<p>Hi {provider.FirstName},</p><p>{bodyIntro}</p>" +
             $"<p>View your schedule here: <a href=\"{providerDashboardUrl}\">{providerDashboardUrl}</a></p>");
+    }
+
+    // Providers only ever see a client's first name and last initial in
+    // their own emails/portal - full names are reserved for Admins/Clients.
+    private static string ClientShortName(User? client)
+    {
+        if (client is null)
+        {
+            return "a client";
+        }
+
+        var lastInitial = string.IsNullOrEmpty(client.LastName) ? "" : client.LastName[..1].ToUpperInvariant();
+        return $"{client.FirstName} {lastInitial}.";
     }
 
     private async Task ConfirmAndCancelBookingAsync()
@@ -530,6 +604,14 @@ else
                 {
                     statusMessage = "Booking cancelled, but the refund failed - please refund manually in the Stripe Dashboard.";
                 }
+            }
+            else if (dbAppt.PaymentStatus == "Paid")
+            {
+                // Paid but no Stripe payment intent means this was a
+                // walk-in marked paid manually (cash/card reader) - there's
+                // no Stripe charge to auto-refund, so flag it for staff to
+                // handle outside the app instead of silently doing nothing.
+                statusMessage = "Booking cancelled. This was marked paid outside Stripe (cash/card reader) - refund the client directly if needed.";
             }
 
             dbAppt.AppointmentStatus = "Cancelled";

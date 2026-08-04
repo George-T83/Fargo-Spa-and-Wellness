@@ -257,22 +257,31 @@
         // policy, so a paid appointment gets refunded automatically here
         // rather than requiring staff to notice and issue it manually.
         var wasPaid = dbAppt.PaymentStatus == "Paid";
+        var refunded = false;
         if (wasPaid && !string.IsNullOrEmpty(dbAppt.StripePaymentIntentId))
         {
-            await StripeCheckout.CreateRefundAsync(dbAppt.StripePaymentIntentId);
-            dbAppt.PaymentStatus = "Refunded";
+            try
+            {
+                await StripeCheckout.CreateRefundAsync(dbAppt.StripePaymentIntentId);
+                refunded = true;
+                dbAppt.PaymentStatus = "Refunded";
+            }
+            catch (Stripe.StripeException)
+            {
+                errorMessage = "Your appointment was cancelled, but the automatic refund failed - please contact us so we can refund you directly.";
+            }
         }
 
         await db.SaveChangesAsync();
 
-        await NotificationService.NotifyCancelledAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, dbAppt.StartTime, dbAppt.EndTime, ChangeActor.Client, refunded: wasPaid);
+        await NotificationService.NotifyCancelledAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, dbAppt.StartTime, dbAppt.EndTime, ChangeActor.Client, refunded);
 
-        if (wasPaid)
+        if (refunded)
         {
             await NotificationService.NotifyRefundIssuedAsync(dbAppt.Client, dbAppt.Provider, dbAppt.Service, dbAppt.StartTime, dbAppt.Service?.Price ?? 0m, "Client cancelled more than 24 hours before the appointment.");
         }
 
-        statusMessage = wasPaid ? "Appointment cancelled and refunded." : "Appointment cancelled.";
+        statusMessage = refunded ? "Appointment cancelled and refunded." : "Appointment cancelled.";
         await LoadAsync();
     }
 }

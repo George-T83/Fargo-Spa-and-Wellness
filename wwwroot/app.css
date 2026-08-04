@@ -607,6 +607,23 @@ h1:focus {
     margin-top: 1.5rem;
 }
 
+.auth-terms-subtext {
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--spa-ink-500, var(--spa-ink-600));
+    margin: 0.75rem 0 0;
+}
+
+.auth-terms-subtext a {
+    color: var(--spa-sage-600);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.auth-terms-subtext a:hover {
+    color: var(--spa-sage-700);
+}
+
 .auth-footer-link a {
     color: var(--spa-sage-600);
     font-weight: 600;
@@ -1559,6 +1576,8 @@ h1:focus {
 
 .calendar-appt-block:hover {
     filter: brightness(0.92);
+    overflow: visible;
+    z-index: 5;
 }
 
 .calendar-appt-block.conflict {
@@ -1568,6 +1587,30 @@ h1:focus {
 .calendar-appt-time {
     font-weight: 700;
     display: block;
+}
+
+.calendar-appt-actions {
+    display: none;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+}
+
+.calendar-appt-block:hover .calendar-appt-actions {
+    display: flex;
+}
+
+.calendar-appt-action-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #fff;
+    text-decoration: underline;
+    font-size: 0.68rem;
+    cursor: pointer;
+}
+
+.calendar-appt-action-link.cancel {
+    color: #ffd9d8;
 }
 
 .admin-range-toggle {
