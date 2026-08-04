@@ -1589,6 +1589,19 @@ h1:focus {
     display: block;
 }
 
+.calendar-appt-client,
+.calendar-appt-service {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.calendar-appt-service {
+    font-size: 0.65rem;
+    color: var(--spa-sage-50);
+}
+
 .calendar-appt-actions {
     display: none;
     gap: 0.5rem;

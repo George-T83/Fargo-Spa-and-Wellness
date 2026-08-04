@@ -70,7 +70,8 @@ else
                              title="@BlockTooltip(appt)"
                              style="top:@(BlockTop(appt))px; height:@(BlockHeight(appt))px">
                             <span class="calendar-appt-time">@appt.StartTime.ToString("h:mmtt")</span>
-                            <span>@(appt.Client?.FullName ?? "Unknown client")</span>
+                            <span class="calendar-appt-client">@(appt.Client?.FullName ?? "Unknown client")</span>
+                            <span class="calendar-appt-service">@(appt.Service?.Name ?? "Unknown service")</span>
                             @if (appt.StartTime > ClinicClock.Now && appt.AppointmentStatus != "Cancelled")
                             {
                                 <div class="calendar-appt-actions">
