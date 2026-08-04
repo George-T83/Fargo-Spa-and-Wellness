@@ -74,10 +74,18 @@ else
                 <button type="button" class="btn btn-spa-secondary" @onclick="CloseDetails">Close</button>
             </div>
 
-            @if (selectedAppointment.AppointmentStatus != "Scheduled")
+            @if (selectedAppointment.EndTime < ClinicClock.Now)
             {
                 <div class="admin-service-actions" style="margin-top:0.5rem;">
-                    <span class="admin-status-badge @StatusBadgeClass(selectedAppointment.AppointmentStatus)">@selectedAppointment.AppointmentStatus</span>
+                    @if (selectedAppointment.AppointmentStatus == "Scheduled")
+                    {
+                        <button type="button" class="btn btn-spa-primary btn-sm" @onclick='() => MarkOutcomeAsync(selectedAppointment, "Completed")'>Mark Complete</button>
+                        <button type="button" class="btn-reject btn-sm" @onclick='() => MarkOutcomeAsync(selectedAppointment, "NoShow")'>Mark No-Show</button>
+                    }
+                    else
+                    {
+                        <span class="admin-status-badge @StatusBadgeClass(selectedAppointment.AppointmentStatus)">@selectedAppointment.AppointmentStatus</span>
+                    }
                 </div>
             }
 
@@ -255,6 +263,23 @@ else
         "Refunded" => "noshow",
         _ => "pending",
     };
+
+    private async Task MarkOutcomeAsync(Appointment appt, string outcome)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        var dbAppt = await db.Appointments.FirstOrDefaultAsync(a => a.Id == appt.Id);
+        if (dbAppt is null)
+        {
+            return;
+        }
+
+        dbAppt.AppointmentStatus = outcome;
+        await db.SaveChangesAsync();
+
+        statusMessage = outcome == "Completed" ? "Marked as completed." : "Marked as no-show.";
+        selectedAppointment = null;
+        await LoadWeekAsync();
+    }
 
     private async Task ConfirmAndCancelAsync(Appointment appt)
     {
