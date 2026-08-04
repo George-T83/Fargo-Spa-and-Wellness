@@ -61,8 +61,8 @@
                 {
                     <div class="col-md-6 col-lg-4">
                         <div class="service-card h-100">
-                            <div class="service-icon">@ServiceCategoryIcon.GetIcon(service.Category)</div>
-                            <p class="service-category">@service.Category</p>
+                            <div class="service-icon">@service.Category.Icon</div>
+                            <p class="service-category">@service.Category.Name</p>
                             <h3 class="service-name">@service.Name</h3>
                             <p class="service-description">@service.Description</p>
                             <div class="service-meta">
@@ -93,11 +93,12 @@
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
         services = await db.Services
-            .OrderBy(s => s.Category)
+            .Include(s => s.Category)
+            .OrderBy(s => s.Category.Name)
             .ThenBy(s => s.Name)
             .ToListAsync();
 
-        categories = services.Select(s => s.Category).Distinct().ToList();
+        categories = services.Select(s => s.Category.Name).Distinct().ToList();
     }
 
     private bool MatchesFilter(Service service)
@@ -106,7 +107,7 @@
             || service.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
             || service.Description.Contains(search, StringComparison.OrdinalIgnoreCase);
 
-        var matchesCategory = selectedCategory == "all" || service.Category == selectedCategory;
+        var matchesCategory = selectedCategory == "all" || service.Category.Name == selectedCategory;
 
         return matchesSearch && matchesCategory;
     }

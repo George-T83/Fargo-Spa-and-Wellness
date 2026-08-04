@@ -67,8 +67,8 @@
                             {
                                 <button type="button" class="treatment-option @(selectedServiceId == service.Id ? "selected" : "")"
                                         @onclick="() => SelectService(service.Id)">
-                                    <div class="service-icon">@ServiceCategoryIcon.GetIcon(service.Category)</div>
-                                    <p class="service-category">@service.Category</p>
+                                    <div class="service-icon">@service.Category.Icon</div>
+                                    <p class="service-category">@service.Category.Name</p>
                                     <h3 class="service-name">@service.Name</h3>
                                     <p class="service-description">@service.Description</p>
                                     <div class="service-meta">
@@ -173,7 +173,7 @@
                             </div>
                             <div class="booking-review-row">
                                 <span class="booking-review-label">Category</span>
-                                <span class="booking-review-value">@selectedService.Category</span>
+                                <span class="booking-review-value">@selectedService.Category.Name</span>
                             </div>
                             <div class="booking-review-row">
                                 <span class="booking-review-label">Duration</span>
@@ -307,7 +307,7 @@
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        services = await db.Services.OrderBy(s => s.Category).ThenBy(s => s.Name).ToListAsync();
+        services = await db.Services.Include(s => s.Category).OrderBy(s => s.Category.Name).ThenBy(s => s.Name).ToListAsync();
         providers = await db.Users.Where(u => u.Role == "Provider").OrderBy(u => u.LastName).ToListAsync();
 
         if (ServiceId.HasValue && services.Any(s => s.Id == ServiceId.Value))

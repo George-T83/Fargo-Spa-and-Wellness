@@ -1,5 +1,8 @@
 @page "/"
+@using Family_and_Spa_Wellness.Data
 @using Family_and_Spa_Wellness.Models
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <PageTitle>Fargo Spa and Wellness</PageTitle>
 
@@ -35,7 +38,7 @@
         <div class="row g-4 mt-2">
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Facial & Skincare")</div>
+                    <div class="service-icon">@Icon("Facial & Skincare")</div>
                     <p class="service-category">Facial &amp; Skincare</p>
                     <h3 class="service-name">Anti-Aging Collagen Facial</h3>
                     <p class="service-description">A collagen-boosting treatment targeting fine lines and loss of elasticity.</p>
@@ -43,7 +46,7 @@
             </div>
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Body Treatments")</div>
+                    <div class="service-icon">@Icon("Body Treatments")</div>
                     <p class="service-category">Body Treatments</p>
                     <h3 class="service-name">Aromatherapy Body Wrap</h3>
                     <p class="service-description">A detoxifying wrap infused with essential oils to nourish and soften the skin.</p>
@@ -51,7 +54,7 @@
             </div>
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Wellness & Add-Ons")</div>
+                    <div class="service-icon">@Icon("Wellness & Add-Ons")</div>
                     <p class="service-category">Wellness &amp; Add-Ons</p>
                     <h3 class="service-name">Aromatherapy Enhancement</h3>
                     <p class="service-description">Add a custom essential oil blend to any massage or body treatment.</p>
@@ -59,7 +62,7 @@
             </div>
             <div class="col-md-6 col-lg-3">
                 <a href="/services" class="service-card h-100 d-block">
-                    <div class="service-icon">@ServiceCategoryIcon.GetIcon("Body Treatments")</div>
+                    <div class="service-icon">@Icon("Body Treatments")</div>
                     <p class="service-category">Body Treatments</p>
                     <h3 class="service-name">Body Polish &amp; Buff</h3>
                     <p class="service-description">A gentle, all-over exfoliating polish that leaves skin smooth, soft, and radiant.</p>
@@ -95,3 +98,22 @@
         </div>
     </div>
 </section>
+
+@code {
+    // These four featured treatments are hand-authored marketing copy, not
+    // pulled from the Services table - but their icons should still reflect
+    // whatever an admin has configured for that category, so this looks up
+    // the same ServiceCategory rows the Service Catalog page manages instead
+    // of hardcoding emoji here too.
+    private Dictionary<string, string> categoryIcons = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync();
+        categoryIcons = await db.ServiceCategories
+            .ToDictionaryAsync(c => c.Name, c => c.Icon, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string Icon(string category) =>
+        categoryIcons.GetValueOrDefault(category, ServiceCategory.DefaultIcon);
+}
