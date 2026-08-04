@@ -143,7 +143,7 @@ else
             {
                 <div class="admin-service-actions" style="margin-top:0.5rem;">
                     <span class="admin-status-badge @PaymentBadgeClass(editingAppointment.PaymentStatus)">@(string.IsNullOrEmpty(editingAppointment.PaymentStatus) ? "Unpaid" : editingAppointment.PaymentStatus)</span>
-                    @if (string.IsNullOrEmpty(editingAppointment.PaymentStatus) || editingAppointment.PaymentStatus == "Unpaid")
+                    @if (string.IsNullOrEmpty(editingAppointment.StripeCheckoutSessionId) && (string.IsNullOrEmpty(editingAppointment.PaymentStatus) || editingAppointment.PaymentStatus == "Unpaid"))
                     {
                         <button type="button" class="btn btn-spa-secondary btn-sm" title="For walk-ins/manual bookings paid outside Stripe (cash, card reader) - records that payment was collected so it counts toward revenue. There's no Stripe charge behind it, so cancelling later won't auto-refund." @onclick="MarkPaidAsync">Mark as paid (cash/other)</button>
                     }
