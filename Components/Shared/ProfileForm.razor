@@ -157,7 +157,7 @@
         // HTTP round-trip (not from inside the live circuit).
         var currentPath = new Uri(NavigationManager.Uri).AbsolutePath;
         var returnUrl = Uri.EscapeDataString($"{currentPath}?updated=1");
-        NavigationManager.NavigateTo($"/account/refresh-claims?returnUrl={returnUrl}", forceLoad: true);
+        NavigationManager.NavigateTo($"/account/refresh-claims?returnUrl={returnUrl}", forceLoad: true, replace: true);
     }
 
     private class ProfileModel
