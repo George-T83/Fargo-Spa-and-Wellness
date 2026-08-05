@@ -1448,6 +1448,18 @@ h1:focus {
     background-color: #fff;
 }
 
+.admin-readonly-value {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--spa-sand-200);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--spa-ink-700);
+    background-color: var(--spa-sand-50);
+    margin: 0;
+}
+
 .calendar-toolbar {
     display: flex;
     flex-wrap: wrap;

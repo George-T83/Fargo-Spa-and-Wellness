@@ -210,7 +210,7 @@
                         {
                             <label class="booking-consent">
                                 <input type="checkbox" @bind="consentGiven" />
-                                <span>I agree to the cancellation policy and to receive booking notifications by email.</span>
+                                <span>I agree to the cancellation policy. Booking notifications will be sent by email based on my notification preferences.</span>
                             </label>
                         }
 
@@ -270,6 +270,9 @@
     [SupplyParameterFromQuery(Name = "time")]
     public string? Time { get; set; }
 
+    [SupplyParameterFromQuery(Name = "providerId")]
+    public int? ProviderId { get; set; }
+
     private static readonly TimeSpan SlotInterval = TimeSpan.FromMinutes(30);
 
     // Reloaded per selected date in LoadSlotsAsync - the shop's hours can
@@ -309,6 +312,11 @@
         await using var db = await DbContextFactory.CreateDbContextAsync();
         services = await db.Services.Include(s => s.Category).OrderBy(s => s.Category.Name).ThenBy(s => s.Name).ToListAsync();
         providers = await db.Users.Where(u => u.Role == "Provider").OrderBy(u => u.LastName).ToListAsync();
+
+        if (ProviderId.HasValue && providers.Any(p => p.Id == ProviderId.Value))
+        {
+            selectedProviderId = ProviderId.Value;
+        }
 
         if (ServiceId.HasValue && services.Any(s => s.Id == ServiceId.Value))
         {
@@ -392,17 +400,14 @@
         return "";
     }
 
-    private string GetLoginUrl()
-    {
-        var returnUrl = $"/book?serviceId={selectedServiceId}&date={selectedDate:yyyy-MM-dd}&time={selectedStart?.ToString("HH:mm")}";
-        return $"/login?returnUrl={System.Net.WebUtility.UrlEncode(returnUrl)}";
-    }
+    private string BookingReturnUrl() =>
+        $"/book?serviceId={selectedServiceId}&date={selectedDate:yyyy-MM-dd}&time={selectedStart?.ToString("HH:mm")}&providerId={selectedProviderId}";
 
-    private string GetRegisterUrl()
-    {
-        var returnUrl = $"/book?serviceId={selectedServiceId}&date={selectedDate:yyyy-MM-dd}&time={selectedStart?.ToString("HH:mm")}";
-        return $"/register?returnUrl={System.Net.WebUtility.UrlEncode(returnUrl)}";
-    }
+    private string GetLoginUrl() =>
+        $"/login?returnUrl={System.Net.WebUtility.UrlEncode(BookingReturnUrl())}";
+
+    private string GetRegisterUrl() =>
+        $"/register?returnUrl={System.Net.WebUtility.UrlEncode(BookingReturnUrl())}";
 
     private void SelectService(int serviceId)
     {
@@ -442,7 +447,7 @@
         step = 3;
         errorMessage = null;
 
-        var targetUrl = $"/book?serviceId={selectedServiceId}&date={selectedDate:yyyy-MM-dd}&time={selectedStart.Value:HH:mm}";
+        var targetUrl = BookingReturnUrl();
         var targetUri = NavigationManager.ToAbsoluteUri(targetUrl);
         if (!string.Equals(NavigationManager.Uri, targetUri.ToString(), StringComparison.Ordinal))
         {
