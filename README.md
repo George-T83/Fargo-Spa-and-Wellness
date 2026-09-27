@@ -45,3 +45,11 @@ dotnet run
 ```
 
 The app listens on the URL(s) configured in `Properties/launchSettings.json`.
+
+## Contributing
+
+This repo strips AI attribution (Co-Authored-By trailers, "Generated with Claude" footers, session links) from commits automatically via a git hook, and double-checks it in CI. After cloning, run once:
+
+```bash
+git config core.hooksPath .githooks
+```
